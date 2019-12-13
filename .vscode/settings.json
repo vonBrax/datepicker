@@ -1,5 +1,19 @@
 {
   "editor.formatOnSave": false,
+
   "eslint.autoFixOnSave": true,
-  "eslint.enable": true
+  "eslint.validate": [
+      { "language": "javascript", "autoFix": true },
+      { "language": "javascriptreact", "autoFix": true },
+      { "language": "vue", "autoFix": true }
+      // { "language": "svelte", "autoFix": true }
+  ],
+  "eslint.enable": true,
+
+  // "scss.validate": false,
+
+  // "postcss.validate": false,
+
+  // "stylelint.autoFixOnSave": true,
+  // "stylelint.enable": true
 }

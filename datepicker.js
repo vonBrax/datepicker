@@ -825,7 +825,248 @@ function getDaysInMonth(year, month) {
   return 32 - this.daylightSavingAdjust(new Date(year, month, 32)).getDate();
 }
 
-function getDefaultDate() {}
+function getDefaultDate(inst) {
+  return this.restrictMinMax(
+    inst,
+    this.determineDate(inst, this.get(inst, 'defaultDate'), new Date()),
+  );
+}
+
+/* Generate the date picker content. */
+function updateDatepicker(inst) {
+  //Reset the max number of rows being displayed (see #7043)
+  this.maxRows = 4;
+  // For delegate hover events
+  datepicker_instActive = inst;
+  inst.dpDiv.innerHTML = '';
+  inst.dpDiv.appendChild(this.generateHTML(inst));
+  this.attachHandlers(inst);
+
+  const numMonths = this.getNumberOfMonths(inst);
+  const cols = numMonths[1];
+  const width = 17;
+  const activeCell = inst.dpDiv.querySelector(`.${this.dayOverClass} a`);
+
+  if (activeCell) {
+    /**
+     * @todo: REVIEW
+     */
+    datepicker_handleMouseOver.apply(activeCell);
+  }
+
+  inst.dpDiv.style.width = '';
+  [
+    'ui-datepicker-multi-2',
+    'ui-datepicker-multi-3',
+    'ui-datepicker-multi-4',
+  ].forEach(className => inst.dpDiv.classList.remove(className));
+
+  if (cols > 1) {
+    inst.dpDiv.classList.add(`ui-datepicker-multi-${cols}`);
+    inst.dpDiv.style.width = `${width * cols}em`;
+  }
+
+  const addRemoveMulti =
+    numMonths[0] !== 1 || numMonths[1] !== 1 ? 'add' : 'remove';
+  inst.dpDiv.classList[addRemoveMulti]('ui-datepicker-multi');
+  const addRemoveRTL = this.get(inst, 'isRTL') ? 'add' : 'remove';
+  inst.dpDiv.classList[addRemoveRTL]('ui-datepicker-rtl');
+
+  if (
+    inst === DatePicker.curInst &&
+    DatePicker.datepickerShowing &&
+    DatePicker.shouldFocusInput(inst)
+  ) {
+    /**
+     * @todo: Review
+     */
+    inst.input.focus();
+  }
+
+  // Deffered render of the years select (to avoid flashes on Firefox)
+  if (inst.yearshtml) {
+    let origYearsHTML = inst.yearshtml;
+    setTimeout(() => {
+      //assure that inst.yearshtml didn't change.
+      if (inst.yearshtml && origYearsHTML === inst.yearshtml) {
+        inst.dpDiv
+          .querySelector('select.ui-datepicker-year')
+          .replaceWith(inst.yearshtml);
+      }
+      origYearsHTML = inst.yearshtml = null;
+    }, 0);
+  }
+}
+
+function generateHTML(inst) {
+  const tempDate = new Date();
+  const today = this.daylightSavingAdjust(
+    // Clear time from date
+    new Date(tempDate.getFullYear(), tempDate.getMonth(), tempDate.getDate()),
+  );
+  const isRTL = this.get(inst, 'isRTL');
+  const showButtonPanel = this.get(inst, 'showButtonPanel');
+  const hideIfNoPrevNext = this.get(inst, 'hideIfNoPrevNext');
+  const navigationAsDateFormat = this.get(inst, 'navigationAsDateFormat');
+  const numMonths = this.getNumberOfMonths(inst);
+  const showCurrentAtPos = this.get(inst, 'showCurrentAtPos');
+  const stepMonths = this.get(inst, 'stepMonths');
+  const isMultiMonth = numMonths[0] !== 1 || numMonths[1] !== 1;
+  const currentDate = this.daylightSavingAdjust(
+    !inst.currentDay
+      ? new Date(9999, 9, 9)
+      : new Date(inst.currentYear, inst.currentMonth, inst.currentDay),
+  );
+  const minDate = this.getMinMaxDate(inst, 'min');
+  const maxDate = this.getMinMaxDate(inst, 'max');
+  let drawMonth = inst.drawMonth - showCurrentAtPos;
+  let drawYear = inst.drawYear;
+
+  if (drawMonth < 0) {
+    drawMonth += 12;
+    drawYear--;
+  }
+
+  if (maxDate) {
+    let maxDraw = this.daylightSavingAdjust(
+      new Date(
+        maxDate.getFullYear(),
+        maxDate.getMonth() - numMonths[0] * numMonths[1] + 1,
+        maxDate.getDate(),
+      ),
+    );
+    maxDraw = minDate && maxDraw < minDate ? minDate : maxDraw;
+
+    while (
+      this.daylightSavingAdjust(new Date(drawYear, drawMonth, 1)) > maxDraw
+    ) {
+      drawMonth--;
+      if (drawMonth < 0) {
+        drawMonth = 11;
+        drawYear--;
+      }
+    }
+  }
+  inst.drawMonth = drawMonth;
+  inst.drawYear = drawYear;
+
+  let prevText = this.get(inst, 'prevText');
+  prevText = !navigationAsDateFormat
+    ? prevText
+    : this.formatDate(
+        prevText,
+        this.daylightSavingAdjust(
+          new Date(drawYear, drawMonth - stepMonths, 1),
+        ),
+        this.getFormatConfig(inst),
+      );
+
+  const prev = this._canAdjustMonth(inst, -1, drawYear, drawMonth)
+    ? "<a class='ui-datepicker-prev ui-corner-all' data-handler='prev' data-event='click'" +
+      " title='" +
+      prevText +
+      "'><span class='ui-icon ui-icon-circle-triangle-" +
+      (isRTL ? 'e' : 'w') +
+      "'>" +
+      prevText +
+      '</span></a>'
+    : hideIfNoPrevNext
+    ? ''
+    : "<a class='ui-datepicker-prev ui-corner-all ui-state-disabled' title='" +
+      prevText +
+      "'><span class='ui-icon ui-icon-circle-triangle-" +
+      (isRTL ? 'e' : 'w') +
+      "'>" +
+      prevText +
+      '</span></a>';
+
+  let nextText = this.get(inst, 'nextText');
+  nextText = !navigationAsDateFormat
+    ? nextText
+    : this.formatDate(
+        nextText,
+        this.daylightSavingAdjust(
+          new Date(drawYear, drawMonth + stepMonths, 1),
+        ),
+        this.getFormatConfig(inst),
+      );
+  const next = this._canAdjustMonth(inst, +1, drawYear, drawMonth)
+    ? "<a class='ui-datepicker-next ui-corner-all' data-handler='next' data-event='click'" +
+      " title='" +
+      nextText +
+      "'><span class='ui-icon ui-icon-circle-triangle-" +
+      (isRTL ? 'w' : 'e') +
+      "'>" +
+      nextText +
+      '</span></a>'
+    : hideIfNoPrevNext
+    ? ''
+    : "<a class='ui-datepicker-next ui-corner-all ui-state-disabled' title='" +
+      nextText +
+      "'><span class='ui-icon ui-icon-circle-triangle-" +
+      (isRTL ? 'w' : 'e') +
+      "'>" +
+      nextText +
+      '</span></a>';
+
+  let currentText = this.get(inst, 'currentText');
+  const gotoDate =
+    this.get(inst, 'gotoCurrent') && inst.currentDay ? currentDate : today;
+  currentText = !navigationAsDateFormat
+    ? currentText
+    : this.formatDate(currentText, gotoDate, this.getFormatConfig(inst));
+
+  const controls = !inst.inline
+    ? "<button type='button' class='ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all' data-handler='hide' data-event='click'>" +
+      this._get(inst, 'closeText') +
+      '</button>'
+    : '';
+
+  const buttonPanel = showButtonPanel
+    ? "<div class='ui-datepicker-buttonpane ui-widget-content'>" +
+      (isRTL ? controls : '') +
+      (this._isInRange(inst, gotoDate)
+        ? "<button type='button' class='ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all' data-handler='today' data-event='click'" +
+          '>' +
+          currentText +
+          '</button>'
+        : '') +
+      (isRTL ? '' : controls) +
+      '</div>'
+    : '';
+
+  let firstDay = parseInt(this.get(inst, 'firstDay'), 10);
+  firstDay = isNaN(firstDay) ? 0 : firstDay;
+
+  const showWeek = this._get(inst, 'showWeek');
+  const dayNames = this._get(inst, 'dayNames');
+  const dayNamesMin = this._get(inst, 'dayNamesMin');
+  const monthNames = this._get(inst, 'monthNames');
+  const monthNamesShort = this._get(inst, 'monthNamesShort');
+  const beforeShowDay = this._get(inst, 'beforeShowDay');
+  const showOtherMonths = this._get(inst, 'showOtherMonths');
+  const selectOtherMonths = this._get(inst, 'selectOtherMonths');
+  const defaultDate = this.getDefaultDate(inst);
+  let html = '';
+
+  for (let row = 0; row < numMonths[0]; row++) {
+    let group = '';
+    this.maxRows = 4;
+    for (let col = 0; col < numMonths[1]; col++) {
+      const selectedDate = this.daylightSavingAdjust(
+        new Date(drawYear, drawMonth, inst.selectedDay),
+      );
+      const cornerClass = 'ui-corner-all';
+      let calender = '';
+
+      if (isMultiMonth) {
+        calender += '<div class="ui-datepicker-group';
+
+        if ()
+      }
+    }
+  }
+}
 
 // PRIVATE FUNCTIONS (I guess...)
 
@@ -894,17 +1135,6 @@ function datepicker_handleMouseOver(evt) {
 
 // TBD
 
-function generateHTML(inst) {
-  const tempDate = new Date();
-  const today = this.daylightSavingAdjust(
-    // Clear time from date
-    new Date(tempDate.getFullYear(), tempDate.getMonth(), tempDate.getDate()),
-  );
-  const isRTL = this.get(inst, 'isRTL');
-  const showButtonPanel = this.get(inst, 'showButtonPanel');
-  const hideIfNoPrevNext = this.get(inst, 'hideIfNoPrevNext');
-}
-
 // TODO rename to "widget" when switching to widget factory
 function widgetDatePicker() {
   return this.dpDiv;
@@ -951,9 +1181,11 @@ proto.getMinMaxDate = getMinMaxDate;
 proto.notifyChange = notifyChange;
 proto.adjustInstDate = adjustInstDate;
 proto.getDaysInMonth = getDaysInMonth;
+proto.getDefaultDate = getDefaultDate;
+proto.updateDatepicker = updateDatepicker;
+proto.generateHTML = generateHTML;
 
 // TBD
-proto.generateHTML = generateHTML;
 proto.widgetDatePicker = widgetDatePicker;
 proto.setDefaults = setDefaults;
 
