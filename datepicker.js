@@ -4,6 +4,8 @@
 // Dependencies: jQuery, jQuery UI
 // ===================================================================
 
+let datepicker_instActive;
+
 // Date picker manager.
 // Use the singleton instance of this class, $.datepicker, to interact with the date picker.
 // Settings for (groups of) date pickers are maintained in an instance object,
@@ -24,7 +26,7 @@ function DatePicker() {
   // The name of the inline marker class
   this.inlineClass = 'ui-datepicker-inline';
   // The name of the append marker class
-  this.appendClass =  'ui-datepicker-append';
+  this.appendClass = 'ui-datepicker-append';
   // The name of the trigger marker class
   this.triggerClass = 'ui-datepicker-trigger';
   // The name of the dialog marker class
@@ -45,9 +47,43 @@ function DatePicker() {
     prevText: 'Prev',
     nextText: 'Next',
     currentText: 'Today',
-    monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-    monthNamesShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    monthNames: [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ],
+    monthNamesShort: [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ],
+    dayNames: [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ],
     dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     dayNamesMin: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
     weekHeader: 'Wk',
@@ -57,9 +93,9 @@ function DatePicker() {
     // True if the year select precedes month, false for month then year
     showMonthAfterYear: false,
     // Additional text to append to the year in the month headers
-    yearSuffix: ''
+    yearSuffix: '',
   };
-  
+
   this.defaults = {
     // "focus" for popup on focus, "button" for trigger button, or "both" for either
     showOn: 'focus',
@@ -142,20 +178,26 @@ function DatePicker() {
     // True to size the input for the date format, false to leave as is
     autoSize: false,
     // The initial disabled state
-    disabled: false
+    disabled: false,
   };
-  
+
   this.defaults = Object.assign(this.defaults, this.regional['']);
   this.regional.en = JSON.parse(JSON.stringify(this.regional['']));
   this.regional['en-US'] = JSON.parse(JSON.stringify(this.regional['']));
-  const html = `<div id="${this._mainDivId}" class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
-  this.dpDiv = datepicker_bindHover(html);
+  // const html = `<div id="${this._mainDivId}" class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
+  const div = document.createElement('div');
+  div.setAttribute('id', this.mainDivId);
+  div.setAttribute(
+    'class',
+    'ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all',
+  );
+  this.dpDiv = datepicker_bindHover(div);
 }
 
 /* Attach the date picker to a jQuery selection.
-* @param  target	element - the target input field or division or span
-* @param  settings  object - the new settings to use for this date picker instance (anonymous)
-*/
+ * @param  target	element - the target input field or division or span
+ * @param  settings  object - the new settings to use for this date picker instance (anonymous)
+ */
 function attachDatepicker(target, settings) {
   const nodeName = target.nodeName.toLowerCase();
   const inline = nodeName === 'div' || nodeName === 'span';
@@ -176,8 +218,13 @@ function attachDatepicker(target, settings) {
 /* Create a new instance object. */
 function newInst(target, inline) {
   // escape jQuery meta chars
-  const id = target.id.replace(/([^A-Za-z0-9_\-])/g, "\\\\$1" );
-  const html = `<div class="${this._inlineClass} ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
+  const id = target.id.replace(/([^A-Za-z0-9_-])/g, '\\\\$1');
+  const div = document.createElement('div');
+  div.setAttribute(
+    'class',
+    `${this.inlineClass} ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all`,
+  );
+  // const html = `<div class="${this.inlineClass} ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
   return {
     id,
     input: target,
@@ -187,7 +234,7 @@ function newInst(target, inline) {
     drawMonth: 0,
     drawYear: 0,
     inline,
-    dpDiv: !inline ? this.dpDiv : datepicker_bindHover(html)
+    dpDiv: !inline ? this.dpDiv : datepicker_bindHover(div),
   };
 }
 
@@ -233,7 +280,10 @@ function attachments(input, inst) {
     span.setAttribute('class', this.appendClass);
     span.innerText = appendText;
     inst.append = span;
-    input.insertAdjacentElement(isRTL ? 'beforebegin' : 'afterend', inst.append );
+    input.insertAdjacentElement(
+      isRTL ? 'beforebegin' : 'afterend',
+      inst.append,
+    );
   }
 
   input.removeEventListener('focus', this.showDatePicker);
@@ -268,12 +318,15 @@ function attachments(input, inst) {
       if (buttonImage) {
         btn.appendChild(img);
       } else {
-        button.innerText = buttonText;
+        btn.innerText = buttonText;
       }
       inst.trigger = btn;
     }
 
-    input.insertAdjacentElement(isRTL ? 'beforebegin' : 'afterend', inst.trigger );
+    input.insertAdjacentElement(
+      isRTL ? 'beforebegin' : 'afterend',
+      inst.trigger,
+    );
     inst.trigger.addEventListener('click', () => {
       if (DatePicker.datepickerShowing && DatePicker.lastInput === input) {
         DatePicker.hideDatepicker();
@@ -289,10 +342,16 @@ function attachments(input, inst) {
   }
 }
 
+function get(inst, name) {
+  return inst.settings[name] !== undefined
+    ? this.settings[name]
+    : this._defaults[name];
+}
+
 function autoSize(inst) {
+  // Ensure double digits
+  const date = new Date(2009, 12 - 1, 20);
   if (this.get(inst, 'autoSize') && !inst.inline) {
-    // Ensure double digits
-    const date = new Date(2009, 12 - 1, 20);
     const dateFormat = this.get(inst, 'dateFormat');
 
     if (dateFormat.match(/[DM]/)) {
@@ -309,7 +368,9 @@ function autoSize(inst) {
 
         return maxI;
       };
-      const monthFormat = dateFormat.match(/MM/) ? 'monthNames' : 'monthNamesShort';
+      const monthFormat = dateFormat.match(/MM/)
+        ? 'monthNames'
+        : 'monthNamesShort';
       date.setMonth(findMax(this.get(inst, monthFormat)));
       const dayFormat = dateFormat.match(/DD/) ? 'dayNames' : 'dayNamesShort';
       date.setDate(findMax(this.get(inst, dayFormat)));
@@ -328,40 +389,57 @@ function _formatDate(inst, day, month, year) {
   }
 
   const date = day
-    ? (typeof day === 'object' ? day : this.daylightSavingsAdjust(new Date(year, month, day)))
-    : this.daylightSavingsAdjust(new Date(inst.currentYear, inst.currentMonth, inst.currentDay));
+    ? typeof day === 'object'
+      ? day
+      : this.daylightSavingAdjust(new Date(year, month, day))
+    : this.daylightSavingAdjust(
+        new Date(inst.currentYear, inst.currentMonth, inst.currentDay),
+      );
 
-  return this.formatDate(this.get(inst, 'dateFormat'), date, this.getFormatConfig(inst));
+  return this.formatDate(
+    this.get(inst, 'dateFormat'),
+    date,
+    this.getFormatConfig(inst),
+  );
+}
+
+function daylightSavingAdjust(date) {
+  if (!date) {
+    return null;
+  }
+
+  date.setHours(date.getHours() > 12 ? date.getHours() + 2 : 0);
+  return date;
 }
 
 /* Format a date object into a string value.
-   * The format can be combinations of the following:
-   * d  - day of month (no leading zero)
-   * dd - day of month (two digit)
-   * o  - day of year (no leading zeros)
-   * oo - day of year (three digit)
-   * D  - day name short
-   * DD - day name long
-   * m  - month of year (no leading zero)
-   * mm - month of year (two digit)
-   * M  - month name short
-   * MM - month name long
-   * y  - year (two digit)
-   * yy - year (four digit)
-   * @ - Unix timestamp (ms since 01/01/1970)
-   * ! - Windows ticks (100ns since 01/01/0001)
-   * "..." - literal text
-   * '' - single quote
-   *
-   * @param  format string - the desired format of the date
-   * @param  date Date - the date value to format
-   * @param  settings Object - attributes include:
-   *          dayNamesShort	string[7] - abbreviated names of the days from Sunday (optional)
-   *          dayNames    string[7] - names of the days from Sunday (optional)
-   *          monthNamesShort string[12] - abbreviated names of the months (optional)
-   *          monthNames    string[12] - names of the months (optional)
-   * @return  string - the date in the above format
-   */
+ * The format can be combinations of the following:
+ * d  - day of month (no leading zero)
+ * dd - day of month (two digit)
+ * o  - day of year (no leading zeros)
+ * oo - day of year (three digit)
+ * D  - day name short
+ * DD - day name long
+ * m  - month of year (no leading zero)
+ * mm - month of year (two digit)
+ * M  - month name short
+ * MM - month name long
+ * y  - year (two digit)
+ * yy - year (four digit)
+ * @ - Unix timestamp (ms since 01/01/1970)
+ * ! - Windows ticks (100ns since 01/01/0001)
+ * "..." - literal text
+ * '' - single quote
+ *
+ * @param  format string - the desired format of the date
+ * @param  date Date - the date value to format
+ * @param  settings Object - attributes include:
+ *          dayNamesShort	string[7] - abbreviated names of the days from Sunday (optional)
+ *          dayNames    string[7] - names of the days from Sunday (optional)
+ *          monthNamesShort string[12] - abbreviated names of the months (optional)
+ *          monthNames    string[12] - names of the months (optional)
+ * @return  string - the date in the above format
+ */
 function formatDate(format, date, settings = {}) {
   if (!date) {
     return '';
@@ -371,26 +449,456 @@ function formatDate(format, date, settings = {}) {
     dayNamesShort = this.defaults.dayNamesShort,
     dayNames = this.defaults.dayNames,
     monthNamesShort = this.defaults.monthNamesShort,
-    monthNames = this.defaults.monthNames
+    monthNames = this.defaults.monthNames,
   } = settings;
+
+  let iFormat;
+
+  // Check whether a format character is doubled
+  const lookAhead = match => {
+    const matches =
+      iFormat + 1 < format.length && format.charAt(iFormat + 1) === match;
+    if (matches) {
+      iFormat++;
+    }
+    return matches;
+  };
+
+  // Format a number, with leading zero if necessary
+  const formatNumber = (match, value, len) => {
+    let num = '' + value;
+    if (lookAhead(match)) {
+      while (num.length < len) {
+        num = '0' + num;
+      }
+    }
+
+    return num;
+  };
+
+  // Format a name, short or long as requested
+  const formatName = (match, value, shortNames, longNames) => {
+    return lookAhead(match) ? longNames[value] : shortNames[value];
+  };
+
+  if (!date) {
+    return '';
+  }
+
+  let output = '';
+  let literal = false;
+
+  for (iFormat = 0; iFormat < format.length; iFormat++) {
+    if (literal) {
+      if (format.charAt(iFormat) === "'" && lookAhead("'")) {
+        literal = false;
+      } else {
+        output += format.charAt(iFormat);
+      }
+    } else {
+      switch (format.charAt(iFormat)) {
+        case 'd':
+          output += formatNumber('d', date.getDate(), 2);
+          break;
+
+        case 'D':
+          output += formatNumber('D', date.getDay(), dayNamesShort, dayNames);
+          break;
+
+        case 'o': {
+          const date1 = new Date(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate(),
+          );
+          const date2 = new Date(date.getFullYear(), 0, 0);
+          const rounded = Math.round(
+            (date1.getTime() - date2.getTime()) / 86400000,
+          );
+          output += formatNumber('o', rounded, 3);
+          break;
+        }
+
+        case 'm':
+          output += formatNumber('m', date.getMonth() + 1, 2);
+          break;
+
+        case 'M':
+          output += formatName(
+            'M',
+            date.getMonth(),
+            monthNamesShort,
+            monthNames,
+          );
+          break;
+
+        case 'y':
+          output += lookAhead('y')
+            ? date.getFullYear()
+            : (date.getFullYear() % 100 < 10 ? '0' : '') +
+              (date.getFullYear() % 100);
+          break;
+
+        case '@':
+          output += date.getTime();
+          break;
+
+        case '!':
+          output += date.getTime() * 10000 + this.ticksTo1970;
+          break;
+
+        case "'":
+          if (lookAhead("'")) {
+            output += "'";
+          } else {
+            literal = true;
+          }
+          break;
+
+        default:
+          output += format.charAt(iFormat);
+      }
+    }
+  }
+
+  return output;
 }
 
+const ticksTo1970 =
+  ((1970 - 1) * 365 +
+    Math.floor(1970 / 4) -
+    Math.floor(1970 / 100) +
+    Math.floor(1970 / 400)) *
+  24 *
+  60 *
+  60 *
+  10000000;
 
+function getFormatConfig(inst) {
+  let shortYearCutoff = this.get(inst, 'shortYearCutoff');
+  shortYearCutoff =
+    typeof shortYearCutoff !== 'string'
+      ? shortYearCutoff
+      : (new Date().getFullYear() % 100) + parseInt(shortYearCutoff, 10);
 
-function get(inst, name) {
-  return inst.settings[name] !== undefined
-    ? this.settings[name] : this._defaults[name];
+  return {
+    shortYearCutoff,
+    dayNamesShort: this.get(inst, 'dayNamesShort'),
+    dayNames: this.get(inst, 'dayNames'),
+    monthNamesShort: this.get(inst, 'monthNamesShort'),
+    monthNames: this.get(inst, 'monthNames'),
+  };
 }
+
+function disableDatepicker(target) {
+  const inst = target.datepicker;
+
+  if (!target.classList.contains(this.markerClassName)) {
+    return;
+  }
+
+  const nodeName = target.nodeName.toLowerCase();
+  if (nodeName === 'input') {
+    target.disabled = true;
+    Array.from(inst.trigger, el => {
+      if (el.matches('button')) {
+        el.disabled = true;
+      } else if (el.matches('img')) {
+        el.style.opacity = '0.5';
+        el.style.cursor = 'default';
+      }
+
+      return el;
+    });
+  } else if (nodeName === 'div' || nodeName === 'span') {
+    const children = Array.from(target.children).filter(el =>
+      el.classList.contains(this.inlineClass),
+    );
+    children.forEach(child => {
+      Array.from(child.children, el => {
+        el.classList.add('ui-state-disabled');
+        return el;
+      });
+      Array.from(
+        child.querySelectorAll(
+          'select.ui-datepicker-month, select.ui-datepicker-year',
+        ),
+        el => {
+          el.disabled = 'true';
+          return el;
+        },
+      );
+    });
+  }
+
+  /**
+   * @todo: Review (replaced $.map with Array.filter)
+   */
+  // delete entry
+  this.disabledInputs = this.disabledInputs.filter(value => {
+    return value === target ? null : value;
+  });
+
+  this.disabledInputs[this.disabledInputs.length] = target;
+}
+
+/* Attach an inline date picker to a div. */
+function inlineDatepicker(target, inst) {
+  if (target.classList.contains(this.markerClassName)) {
+    return;
+  }
+
+  target.classList.add(this.markerClassName);
+  target.appendChild(inst.dpDiv);
+  target.datepicker = inst;
+  this.setDate(inst, this.getDefaultDate(inst), true);
+  this.updateDatepicker(inst);
+  this.updateAlternate(inst);
+
+  //If disabled option is true, disable the datepicker before showing it (see ticket #5665)
+  if (inst.settings.disabled) {
+    this.disableDatepicker(target);
+  }
+
+  // Set display:block in place of inst.dpDiv.show() which won't work on disconnected elements
+  // http://bugs.jqueryui.com/ticket/7552 - A Datepicker created on a detached div has zero height
+  inst.dpDiv.style.display = 'block';
+}
+
+function setDate(inst, date, noChange) {
+  const clear = !date;
+  const origMonth = inst.selectedMonth;
+  const origYear = inst.selectedYear;
+  const newDate = this.restrictMinMax(
+    inst,
+    this.determineDate(inst, date, new Date()),
+  );
+
+  inst.selectedDay = inst.currentDay = newDate.getDate();
+  inst.drawMonth = inst.selectedMonth = inst.currentMonth = newDate.getMonth();
+  inst.drawYear = inst.selectedYear = inst.currentYear = newDate.getFullYear();
+
+  if (
+    (origMonth !== inst.selectedMonth || origYear !== inst.selectedYear) &&
+    !noChange
+  ) {
+    this.notifyChange(inst);
+  }
+
+  this.adjustInstDate(inst);
+  if (inst.input) {
+    inst.input.value = clear ? '' : this.formatDate(inst);
+  }
+}
+
+/* A date may be specified as an exact value or a relative one. */
+function determineDate(inst, date, defaultDate) {
+  const offsetNumeric = offset => {
+    const _date = new Date();
+    _date.setDate(_date.getDate() + offset);
+    return _date;
+  };
+
+  const offsetString = offset => {
+    try {
+      return DatePicker.parseDate(
+        DatePicker.get(inst, 'dateFormat'),
+        offset,
+        DatePicker.getFormatConfig(inst),
+      );
+    } catch (e) {
+      // Ignore
+    }
+
+    const _date =
+      (offset.toLowerCase().match(/^c/) ? DatePicker.getDate(inst) : null) ||
+      new Date();
+    let year = _date.getFullYear();
+    let month = _date.getMonth();
+    let day = _date.getDate();
+    const pattern = /([+-]?[0-9]+)\s*(d|D|w|W|m|M|y|Y)?/g;
+    let matches = pattern.exec(offset);
+
+    while (matches) {
+      switch (matches[2] || 'd') {
+        case 'd':
+        case 'D':
+          day += parseInt(matches[1], 10);
+          break;
+
+        case 'w':
+        case 'W':
+          day += parseInt(matches[1], 10) * 7;
+          break;
+
+        case 'm':
+        case 'M':
+          month += parseInt(matches[1], 10);
+          day = Math.min(day, DatePicker.getDaysInMonth(year, month));
+          break;
+
+        case 'y':
+        case 'Y':
+          year += parseInt(matches[1], 10);
+          day = Math.min(day, DatePicker.getDaysInMonth(year, month));
+          break;
+      }
+      matches = pattern.exec(offset);
+    }
+
+    return new Date(year, month, day);
+  };
+
+  let newDate =
+    date == null || date === ''
+      ? defaultDate
+      : typeof date === 'string'
+      ? offsetString(date)
+      : typeof date === 'number'
+      ? isNaN(date)
+        ? defaultDate
+        : offsetNumeric(date)
+      : new Date(date.getTime());
+
+  newDate =
+    newDate && newDate.toString() === 'Invalid Date' ? defaultDate : newDate;
+
+  if (newDate) {
+    newDate.setHours(0);
+    newDate.setMinutes(0);
+    newDate.setSeconds(0);
+    newDate.setMilliseconds(0);
+  }
+
+  return this.daylightSavingAdjust(newDate);
+}
+
+/* Ensure a date is within any min/max bounds. */
+function restrictMinMax(inst, date) {
+  const minDate = this.getMinMaxDate(inst, 'min');
+  const maxDate = this.getMinMaxDate(inst, 'max');
+  const newDate = minDate && date < minDate ? minDate : date;
+
+  return maxDate && newDate > maxDate ? maxDate : newDate;
+}
+
+/* Determine the current maximum date - ensure no time components are set. */
+function getMinMaxDate(inst, minMax) {
+  return this.determineDate(inst, this.get(inst, minMax + 'Date'), null);
+}
+
+/* Notify change of month/year. */
+function notifyChange(inst) {
+  const onChange = this.get(inst, 'onChangeMonthYear');
+  if (onChange) {
+    onChange.apply(inst.input ? inst.input : null, [
+      inst.selectedYear,
+      inst.selectedMonth + 1,
+      inst,
+    ]);
+  }
+}
+
+/* Adjust one of the date sub-fields. */
+function adjustInstDate(inst, offset, period) {
+  const year = inst.selectedYear + (period === 'Y' ? offset : 0);
+  const month = inst.selectedMonth + (period === 'M' ? offset : 0);
+  const day =
+    Math.min(inst.selectedDay, this.getDaysInMonth(year, month)) +
+    (period === 'D' ? offset : 0);
+  const date = this.restrictMinMax(
+    inst,
+    this.daylightSavingAdjust(new Date(year, month, day)),
+  );
+
+  inst.selectedDay = date.getDate();
+  inst.drawMonth = inst.selectedMonth = date.getMonth();
+  inst.drawYear = inst.selectedYear = date.getFullYear();
+
+  if (period === 'M' || period === 'Y') {
+    this.notifyChange(inst);
+  }
+}
+
+/* Find the number of days in a given month. */
+function getDaysInMonth(year, month) {
+  return 32 - this.daylightSavingAdjust(new Date(year, month, 32)).getDate();
+}
+
+function getDefaultDate() {}
+
+// PRIVATE FUNCTIONS (I guess...)
+
+/*
+ * Bind hover events for datepicker elements.
+ * Done via delegate so the binding only occurs once in the lifetime of the parent div.
+ * Global datepicker_instActive, set by _updateDatepicker allows the handlers to find their way back to the active picker.
+ */
+function datepicker_bindHover(dpDiv) {
+  const selector =
+    'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td a';
+  dpDiv.addEventListener('mouseout', evt => {
+    if (evt.currentTarget.matches(selector)) {
+      console.log(
+        '%c Howdy there champ, we may have found something!',
+        'color: blue',
+      );
+    }
+    if (!evt.target.matches(selector)) {
+      return;
+    }
+    const { target } = evt;
+    target.classList.remove('ui-state-hover');
+    if (target.className.includes('ui-datepicker-prev')) {
+      target.classList.remove('ui-datepicker-prev-hover');
+    }
+    if (target.className.includes('ui-datepicker-next')) {
+      target.classList.remove('ui-datepicker-next-hover');
+    }
+  });
+
+  dpDiv.addEventListener('mouseover', datepicker_handleMouseOver);
+}
+
+function datepicker_handleMouseOver(evt) {
+  const selector =
+    'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td a';
+  if (!evt.target.matches(selector)) {
+    return;
+  }
+
+  const { target } = evt;
+  if (
+    DatePicker.isDisabledDatepicker(
+      datepicker_instActive.inline
+        ? datepicker_instActive.dpDiv.parentElement
+        : datepicker_instActive.input,
+    )
+  ) {
+    /**
+     * @todo: REVIEW
+     */
+    target
+      .closest('ui-datepicker-calendar')
+      .querySelector('a')
+      .classList.remove('ui-state-hover');
+    target.classList.add('ui-state-hover');
+    if (target.className.includes('ui-datepicker-prev')) {
+      target.classList.add('ui-datepicker-prev-hover');
+    }
+    if (target.className.includes('ui-datepicker-next')) {
+      target.classList.add('ui-datepicker-next-hover');
+    }
+  }
+}
+
+// TBD
 
 function generateHTML(inst) {
   const tempDate = new Date();
-  const today = this.daylightSavingsAdjust(
+  const today = this.daylightSavingAdjust(
     // Clear time from date
-    new Date(
-      tempDate.getFullYear(),
-      tempDate.getMonth(),
-      tempDate.getDate()
-    )
+    new Date(tempDate.getFullYear(), tempDate.getMonth(), tempDate.getDate()),
   );
   const isRTL = this.get(inst, 'isRTL');
   const showButtonPanel = this.get(inst, 'showButtonPanel');
@@ -403,11 +911,11 @@ function widgetDatePicker() {
 }
 
 /* Override the default settings for all instances of the date picker.
-* @param  settings  object - the new settings to use as defaults (anonymous object)
-* @return the manager object
-*/
+ * @param  settings  object - the new settings to use as defaults (anonymous object)
+ * @return the manager object
+ */
 function setDefaults(settings) {
-  datepicker_extendRemove(this.defaults, settings || {});
+  datepicker_extendRemove(this.defaults, settings || {});
   return this;
 }
 
@@ -427,13 +935,27 @@ proto.attachDatepicker = attachDatepicker;
 proto.newInst = newInst;
 proto.connectDatepicker = connectDatepicker;
 proto.attachments = attachments;
+proto.get = get;
 proto.autoSize = autoSize;
+proto._formatDate = _formatDate;
+proto.daylightSavingAdjust = daylightSavingAdjust;
 proto.formatDate = formatDate;
+proto.ticksTo1970 = ticksTo1970;
+proto.getFormatConfig = getFormatConfig;
+proto.disableDatepicker = disableDatepicker;
+proto.inlineDatepicker = inlineDatepicker;
+proto.setDate = setDate;
+proto.determineDate = determineDate;
+proto.restrictMinMax = restrictMinMax;
+proto.getMinMaxDate = getMinMaxDate;
+proto.notifyChange = notifyChange;
+proto.adjustInstDate = adjustInstDate;
+proto.getDaysInMonth = getDaysInMonth;
 
+// TBD
+proto.generateHTML = generateHTML;
 proto.widgetDatePicker = widgetDatePicker;
 proto.setDefaults = setDefaults;
-proto.get = get;
-proto.generateHTML = generateHTML;
 
 // ===================================================================
 //
@@ -441,6 +963,7 @@ proto.generateHTML = generateHTML;
 //
 // ====================================================================
 
+/* eslint-disable */
 
 // ===================================================================
 // Source code adapted (vanilla) from:
@@ -469,20 +992,22 @@ $(function () {
 */
 
 function dayTripper() {
-   const trigger = document.querySelector('.ui-datepicker-trigger')
-   if (trigger) {
-     trigger.addEventListener('click', onTriggerClick);
-   }
+  const trigger = document.querySelector('.ui-datepicker-trigger');
+  if (trigger) {
+    trigger.addEventListener('click', onTriggerClick);
+  }
 }
 
 function onTriggerClick() {
   setTimeout(() => {
     let today = document.querySelector('.ui-datepicker-today a');
-    
+
     if (!today) {
-      today = document.querySelector('.ui-state-active') || document.querySelector('.ui-state-default');
+      today =
+        document.querySelector('.ui-state-active') ||
+        document.querySelector('.ui-state-default');
     }
-    
+
     // Hide the entire page (except the date picker)
     // from screen readers to prevent documnet navigation
     // (by headings, etc.) while the popup is open
@@ -492,12 +1017,12 @@ function onTriggerClick() {
     if (dpContainer) dpContainer.setAttribute('aria-hidden', 'true');
     const skipNav = document.querySelector('#skipnav');
     if (skipNav) skipNav.setAttribute('aria-hidden', 'true');
-    
+
     // Hide the "today" button because it doesn't do what
     // you think it supposed to do
     const todayBtn = document.querySelector('.ui-datepicker-current');
     if (todayBtn) todayBtn.style.display = 'none';
-    
+
     today.focus();
     datePickHandler();
     document.addEventListener('click', closeCalendar);
@@ -509,134 +1034,147 @@ function datePickHandler() {
   let activeDate;
   const container = document.getElementById('ui-datepicker-div');
   const input = document.getElementById('datepicker');
-  
-  if (!container || !input) {
+
+  if (!container || !input) {
     return;
   }
-  
+
   container.setAttribute('role', 'application');
   container.setAttribute('aria-label', 'Calendar view date-picker');
-  
+
   // The top controls:
   const prev = container.querySelector('.ui-datepicker-prev');
   const next = container.querySelector('.ui-datepicker-next');
-  
+
   // This is the line that needs to be fixed for use on pages with base URL set in head
   next.href = 'javascript:void(0)';
   prev.href = 'javascript:void(0)';
-  
+
   next.setAttribute('role', 'button');
   next.removeAttribute('title');
   prev.setAttribute('role', 'button');
   prev.removeAttribute('title');
-  
+
   appendOffscreenMonthText(next);
   appendOffscreenMonthText(prev);
-  
+
   // Delegation won't work here for whatever reason, se we are
   // forced to attach individual click listeners to the prev /
   // next month buttons each time they are added to the DOM
-  
+
   next.addEventListener('click', handleNextClicks);
   prev.addEventListener('click', handlePrevClicks);
-  
+
   monthDayYearText();
-  
+
   container.addEventListener('keydown', calendarKeyboardListener);
 }
 
 function calendarKeyboardListener(evt) {
   const { which, target } = evt.which;
   let dateCurrent = getCurrentDate(container);
-  
+
   if (!dateCurrent) {
     dateCurrent = document.querySelector('a.ui-state-default');
     setHighlightState(dateCurrent, container);
   }
-  
+
   // ESC
   if (which === 27) {
     evt.stopPropagation();
     return closeCalendar();
-    
-  // SHIFT + TAB
+
+    // SHIFT + TAB
   } else if (which === 9 && evt.shiftKey) {
     evt.preventDefault();
-    
+
     // Close button
     if (target.classList.contains('ui-datepicker-close')) {
       document.querySelector('.ui-datepicker-prev').focus();
-    
-    // Date link
+
+      // Date link
     } else if (target.classList.contains('ui-state-default')) {
       document.querySelector('.ui-datepicker-close').focus();
-      
-    // The prev link
+
+      // The prev link
     } else if (target.classList.contains('ui-datepicker-prev')) {
       document.querySelector('.ui-datepicker-next').focus();
-    
-    // The next link
+
+      // The next link
     } else if (target.classList.contains('ui-datepicker-next')) {
-      activeDate = document.querySelector('.ui-state-highlight') || document.querySelector('.ui-state-active');
-      
+      activeDate =
+        document.querySelector('.ui-state-highlight') ||
+        document.querySelector('.ui-state-active');
+
       if (activeDate) {
         activeDate.focus();
       }
     }
-    
-  // TAB
-  } else if ( which === 9) {
+
+    // TAB
+  } else if (which === 9) {
     evt.preventDefault();
-    
+
     // Close button
     if (target.classList.contains('ui-datepicker-close')) {
-       activeDate = document.querySelector('.ui-state-highlight') || document.querySelector('.ui-state-active');
-      
+      activeDate =
+        document.querySelector('.ui-state-highlight') ||
+        document.querySelector('.ui-state-active');
+
       if (activeDate) {
         activeDate.focus();
       }
-    
     } else if (target.classList.contains('ui-state-default')) {
       document.querySelector('.ui-datepicker-next').focus();
-      
-    } else if(target.classList.contains('ui-datepicker-next')) {
+    } else if (target.classList.contains('ui-datepicker-next')) {
       document.querySelector('.ui-datepicker-prev').focus();
-      
-    } else if(target.classList.contains('ui-datepicker-prev')) {
+    } else if (target.classList.contains('ui-datepicker-prev')) {
       document.querySelector('.ui-datepicker-close').focus();
     }
-    
-  // LEFT arrow
+
+    // LEFT arrow
   } else if (which === 37) {
     // If we're on a date link
-    if (!target.classList.contains('ui-datepicker-close') && target.classList.contains('ui-state-default')) {
+    if (
+      !target.classList.contains('ui-datepicker-close') &&
+      target.classList.contains('ui-state-default')
+    ) {
       evt.preventDefault();
       previousDay(target);
     }
-  
-  // RIGHT arrow
+
+    // RIGHT arrow
   } else if (which === 39) {
     // If we're on a date link
-    if (!target.classList.contains('ui-datepicker-close') && target.classList.contains('ui-state-default')) {
+    if (
+      !target.classList.contains('ui-datepicker-close') &&
+      target.classList.contains('ui-state-default')
+    ) {
       evt.preventDefault();
       nextDay(target);
     }
-    
-  // UP arrow
+
+    // UP arrow
   } else if (which === 38) {
-    if (!target.classList.contains('ui-datepicker-close') && target.classList.contains('ui-state-default')) {
+    if (
+      !target.classList.contains('ui-datepicker-close') &&
+      target.classList.contains('ui-state-default')
+    ) {
       evt.preventDefault();
       upHandler(target, container, prev);
     }
-    
-  // DOWN arrow
+
+    // DOWN arrow
   } else if (which === 40) {
-    if (!target.classList.contains('ui-datepicker-close') && target.classList.contains('ui-state-default')) {
+    if (
+      !target.classList.contains('ui-datepicker-close') &&
+      target.classList.contains('ui-state-default')
+    ) {
       evt.preventDefault();
       downHandler(target, container, next);
     }
-    
-  // ENTER
+
+    // ENTER
   } else if (which === 13) {
     if (target.classList.contains('ui-state-default')) {
       setTimeout(() => closeCalendar(), 100);
@@ -645,41 +1183,51 @@ function calendarKeyboardListener(evt) {
     } else if (target.classList.contains('ui-datepicker-next')) {
       handleNextClicks();
     }
-    
-  // ?
+
+    // ?
   } else if (which === 32) {
-    if (target.classList.contains('ui-datepicker-prev') || target.classList.contains('ui-datepicker-next')) {
+    if (
+      target.classList.contains('ui-datepicker-prev') ||
+      target.classList.contains('ui-datepicker-next')
+    ) {
       target.click();
     }
-    
-  // PAGE UP
+
+    // PAGE UP
   } else if (which === 33) {
     moveOneMonth(target, 'prev');
-    
-  // PAGE DOWN
+
+    // PAGE DOWN
   } else if (which === 34) {
     moveOneMonth(target, 'next');
-    
-  // HOME
+
+    // HOME
   } else if (which === 36) {
-    const firstOfMonth = target.closest('tbody').querySelector('.ui-state-default');
-    
+    const firstOfMonth = target
+      .closest('tbody')
+      .querySelector('.ui-state-default');
+
     if (firstOfMonth) {
       firstOfMonth.focus();
-      setHighlightState(firstOfMonth, document.querySelector('#ui-datepicker-div'));
+      setHighlightState(
+        firstOfMonth,
+        document.querySelector('#ui-datepicker-div'),
+      );
     }
-    
-  // END
+
+    // END
   } else if (which === 35) {
-    const $daysOfMonth = target.closest('tbody').querySelectorAll('.ui-state-default');
+    const $daysOfMonth = target
+      .closest('tbody')
+      .querySelectorAll('.ui-state-default');
     const lastDay = $daysOfMonth($daysOfMonth.length - 1);
-    
+
     if (lastDay) {
       lastDay.focus();
       setHighlightState(lastDay, document.querySelector('#ui-datepicker-div'));
     }
   }
-  
+
   document.querySelector('.ui-datepicker-current').style.display === 'none';
 }
 
@@ -688,8 +1236,8 @@ function closeCalendar() {
   container.removeEventListener('keydown', calendarKeyboardListener);
   const input = document.querySelector('#datepicker');
   /*
-  * @todo: REFACTOR
-  */
+   * @todo: REFACTOR
+   */
   // input.datepicker('hide')
 }
 
@@ -700,38 +1248,40 @@ function removeAria() {
 }
 
 /*
-* UTILS
-*/
+ * UTILS
+ */
 const isOdd = num => num % 2;
 
 function moveOneMonth(currentDate, dir) {
-  const button = dir === 'next'
-    ? document.querySelector('.ui-datepicker-next')
-    : document.querySelector('.ui-datepicker-prev');
-  
+  const button =
+    dir === 'next'
+      ? document.querySelector('.ui-datepicker-next')
+      : document.querySelector('.ui-datepicker-prev');
+
   if (!button) {
     return;
   }
-  
-  const ENABLED_SELECTOR = '#ui-datepicker-div tbody td:not(.ui-state-disabled)';
+
+  const ENABLED_SELECTOR =
+    '#ui-datepicker-div tbody td:not(.ui-state-disabled)';
   const currentCells = Array.from(document.querySelectorAll(ENABLED_SELECTOR));
   let currentIdx = currentCells.findIndex(el => el === currentDate.parentNode);
-  
+
   button.click();
-  
+
   setTimeout(() => {
     updateHeaderElements();
-    
+
     const newCells = document.querySelectorAll(ENABLED_SELECTOR);
     let newTd = newCells[currentIdx];
     let newAnchor = newTd && newTd.querySelector('a');
-    
+
     while (!newAnchor) {
       currentIdx--;
       newTd = newCells[currentIdx];
       newAnchor = newTd && newTd.querySelector('a');
     }
-    
+
     setHighlightState(newAnchor, document.querySelector('#ui-datepicker-div'));
     newAnchor.focus();
   }, 0);
@@ -759,21 +1309,21 @@ function previousDay(dateLink) {
   if (!dateLink) {
     return;
   }
-  
+
   const td = dateLink.closest('td');
   if (!td) {
     return;
   }
-  
+
   const container = document.getElementById('ui-datepicker-div');
   const prevTd = td.previousElementSibling;
-  
+
   /*
    * @todo: REVIEW
    *  // prevDateLink = $('a.ui-state-default', prevTd)[0];
    */
   const prevDateLink = prevTd.querySelector('a.ui-state-default');
-  
+
   if (prevTd && prevDateLink) {
     setHighlightState(prevDateLink, container);
     prevDateLink.focus();
@@ -784,30 +1334,29 @@ function previousDay(dateLink) {
 
 function handlePrevious(target) {
   const container = document.getElementById('ui-datepicker-div');
-  
+
   if (!target) {
     return;
   }
-  
+
   const currentRow = target.closest('tr');
-  
+
   if (!currentRow) {
     return;
   }
-  
+
   const previousRow = currentRow.previousElementSibling;
   if (!previousRow) {
     // There is not a previous row, so we go to previous month
     previousMonth();
   } else {
-    
     /*
      * @todo: REVIEW
      *  // var prevRowDates = $('td a.ui-state-default', previousRow);
      */
     const prevRowDates = previousRow.querySelectorAll('td a.ui-state-default');
     const prevRowDate = prevRowDates[prevRowDates.length - 1];
-    
+
     if (prevRowDate) {
       setTimeout(() => {
         setHighlightState(prevRowDate, container);
@@ -821,45 +1370,47 @@ function previousMonth() {
   const prevLink = document.querySelector('.ui-datepicker-prev');
   const container = document.getElementById('ui-datepicker-div');
   prevLink.click();
-  
+
   // Focus last day of new month
   setTimeout(() => {
     const trs = container.querySelectorAll('tr');
-    const lastRowTdLinks = trs[trs.length - 1].querySelectorAll('td a.ui-state-default');
+    const lastRowTdLinks = trs[trs.length - 1].querySelectorAll(
+      'td a.ui-state-default',
+    );
     const lastDate = lastRowTdLinks[lastRowTdLinks.length - 1];
-    
+
     // Update the cached header elements
     updateHeaderElements();
-    
+
     setHighlightState(lastDate, container);
     lastDate.focus();
   }, 0);
 }
 
-/* 
+/*
  * =====================
  *  NEXT
  * =====================
  */
 
 /*
-* Handles right arrow key navigation
-* @param [HTMLElement] dateLink the target of the keyboard event
-*/
+ * Handles right arrow key navigation
+ * @param [HTMLElement] dateLink the target of the keyboard event
+ */
 function nextDay(dateLink) {
   const container = document.getElementById('ui-datepicker-div');
   if (!dateLink) {
     return;
   }
-  
+
   const td = dateLink.closest('td');
   if (!td) {
     return;
   }
-  
+
   const nextTd = td.nextElementSibling;
   const nextDateLink = nextTd.querySelector('a.ui-state-default');
-  
+
   if (nextTd && nextDateLink) {
     setHightlightState(nextDateLink, container);
     // The next day (same row)
@@ -874,10 +1425,10 @@ function handleNext(target) {
   if (!target) {
     return;
   }
-  
+
   const currentRow = target.closest('tr');
   const nextRow = currentRow.nextElementSibling;
-  
+
   if (!nextRow) {
     nextMonth();
   } else {
@@ -893,19 +1444,19 @@ function nextMonth() {
   nextMon = document.querySelector('.ui-datepicker-next');
   const container = documnt.getElementById('ui-datepicker-div');
   nextMon.click();
-  
+
   // Focus the first day of the new month
   setTimeout(() => {
     // Update the cached header elements
     updateHeaderElements();
-    
+
     const firstDate = container.querySelector('a.ui-state-default');
     setHighlightState(firstDate, container);
     firstDate.focus();
   }, 0);
 }
 
-/* 
+/*
  * =====================
  *  UP
  * =====================
@@ -923,15 +1474,17 @@ function upHandler(target, cont, prevLink) {
   if (!rowContext) {
     return;
   }
-  
+
   const rowTds = Array.from(rowContext.querySelectorAll('td'));
-  const rowLinks = Array.from(rowContext.querySelectorAll('a.ui-state-default'));
+  const rowLinks = Array.from(
+    rowContext.querySelectorAll('a.ui-state-default'),
+  );
   const targetIndex = rowLinks.findIndex(el => el === target);
   const prevRow = rowContext.previousElementSibling;
   const prevRowTds = prevRow.querySelectorAll('td');
   const parallel = prevRowTds[targetIndex];
   const linkCheck = parallel.querySelector('a.ui-state-default');
-  
+
   if (prevRow && parallel && linkCheck) {
     // There is a previous row, a td at the same index
     // of the target AND there is a link in that td
@@ -944,14 +1497,14 @@ function upHandler(target, cont, prevLink) {
     setTimeout(() => {
       // Update the cached header elements
       updateHeaderElements();
-      
+
       const newRows = cont.querySelectorAll('tr');
       const lastRow = newRows[newRows.length - 1];
       const lastRowTds = lastRow.querySelectorAll('td');
       const tdParallelIndex = rowTds.findIndex(el => el === target.parentNode);
       const newParallel = lastRowTds[tdParallelIndex];
       const newCheck = newParallel.querySelector('a.ui-state-default');
-      
+
       if (lastRow && newParallel && newCheck) {
         setHighlightState(newCheck, cont);
         newCheck.focus();
@@ -962,7 +1515,7 @@ function upHandler(target, cont, prevLink) {
         const secondTds = secondLastRow.querySelectorAll('td');
         const targetTd = secondTds[tdParallelIndex];
         const linkCheck = targetTd.querySelector('a.ui-state-default');
-        
+
         if (linkCheck) {
           setHighlightState(linkCheck, cont);
           linkCheck.focus();
@@ -972,7 +1525,7 @@ function upHandler(target, cont, prevLink) {
   }
 }
 
-/* 
+/*
  * =====================
  *  DOWN
  * =====================
@@ -990,7 +1543,7 @@ function downHandler(target, cont, nextLink) {
   if (!targetRow) {
     return;
   }
-  
+
   const targetCells = Array.from(targetRow.querySelectorAll('td'));
   // The td (parent of target) index
   const cellIndex = targetCells.findIndex(el => el === target.parentNode);
@@ -998,7 +1551,7 @@ function downHandler(target, cont, nextLink) {
   const nextRowCells = nextRow.querySelectorAll('td');
   const nextWeekTd = nextRowCells[cellIndex];
   const nextWeekCheck = nextWeekTd.querySelector('a.ui-state-default');
-  
+
   if (nextRow && nextWeekTd && nextWeekCheck) {
     // Theres a next row, a TD at the same index of 'target',
     // and theres an anchor within that td
@@ -1006,28 +1559,27 @@ function downHandler(target, cont, nextLink) {
     nextWeekCheck.focus();
   } else {
     nextLink.click();
-    
+
     setTimeout(() => {
       // Update the cached header elements
       updateHeaderElements();
-      
+
       const nextMonthTrs = cont.querySelectorAll('tbody tr');
       const firstTds = nextMonthTrs.querySelectorAll('td');
       const firstParallel = firstTds[cellIndex];
       const firstCheck = firstParallel.querySelector('a.ui-state-default');
-      
+
       if (firstParallel && firstCheck) {
         setHighlightState(firstCheck, cont);
         firstCheck.focus();
-      
-      } else { 
+      } else {
         // lets try the second row because we didn't find a
         // date link inthe first row at the target's index
         const secondRow = nextMonthTrs[1];
         const secondTds = secondRow.querySelectorAll('td');
         const secondRowTd = secondTds[cellIndex];
         const secondCheck = secondRowTd.querySelector('a.ui-state-default');
-        
+
         if (secondRow && secondCheck) {
           setHighlightState(secondCheck, cont);
           secondCheck.focus();
@@ -1047,17 +1599,16 @@ function monthDayYearText() {
   /*
    * @todo: See if it works, or use forEach
    */
-  const cleanUps = Array.from(
-    document.querySelectorAll('.amaze-date'),
-    clean => clean.parentNode.removeChild(clean)
+  const cleanUps = Array.from(document.querySelectorAll('.amaze-date'), clean =>
+    clean.parentNode.removeChild(clean),
   );
-  
+
   const datePickDiv = document.getElementById('ui-datepicker-div');
 
   if (!datePickDiv) {
     return;
   }
-  
+
   const dates = Array.from(
     datePickDiv.querySelectorAll('a.ui-state-default'),
     (date, index) => {
@@ -1072,31 +1623,34 @@ function monthDayYearText() {
           setTimeout(closeCalendar, 100);
         }
       });
-      
+
       const currentRow = date.closest('tr');
       const currentTds = Array.from(currentRow.querySelectorAll('td'));
       const currentIndex = currentTds.findIndex(el => el === date.parentNode);
       const headThs = datePickDiv.querySelectorAll('thead tr th');
       const dayIndex = headThs[currentIndex];
       const daySpan = dayIndex.querySelector('span');
-      const monthName = datePickDiv.querySelector('.ui-datepicker-month').innerHTML;
+      const monthName = datePickDiv.querySelector('.ui-datepicker-month')
+        .innerHTML;
       const year = datePickDiv.querySelector('.ui-datepicker-year').innerHTML;
       const number = date.innerHTML;
-      
-      if (!daySpan || !monthName || !number || !year) {
+
+      if (!daySpan || !monthName || !number || !year) {
         return;
       }
-      
+
       // AT Reads: { month } { date } { year } { day }
       // "December 18 2014 Thursday"
-      const dateText = date.innerHTML + ' ' + monthName + ' ' + year + ' ' + daySpan.title;
-      
+      const dateText =
+        date.innerHTML + ' ' + monthName + ' ' + year + ' ' + daySpan.title;
+
       // AT Reads: { date(number) } { name of day } { name of month } { year(number) }
       // const dateText = date.innerHTML + ' ' + daySpan.title + ' ' + monthName + ' ' + year;
-      
+
       // Add an aria-label to the date link reading out the currently focused date
       date.setAttribute('aria-label', dateText);
-  });
+    },
+  );
 }
 
 // Update the cached header elements because we're in a new month or year
@@ -1105,29 +1659,31 @@ function updateHeaderElements() {
   if (!context) {
     return;
   }
-  
+
   const prev = context.querySelector('.ui-datepicker-prev');
   const next = context.querySelector('.ui-datepicker-next');
-  
+
   next.href = 'javascript:void(0)';
   prev.href = 'javascript:void(0)';
-  
+
   next.setAttribute('role', 'button');
   prev.setAttribute('role', 'button');
   appendOffscreenMonthText(next);
   appendOffscreenMonthText(prev);
-  
+
   next.addEventListener('click', handleNextClicks);
   prev.addEventListener('click', handlePrevClicks);
-  
+
   // Add month day year text
   monthDayYearText();
 }
 
 function prepHighlightState() {
   const cage = document.getElementById('ui-datepicker-div');
-  const highlight = cage.querySelector('.ui-state-highlight') || cage.querySelector('.ui-state-default');
-  
+  const highlight =
+    cage.querySelector('.ui-state-highlight') ||
+    cage.querySelector('.ui-state-default');
+
   if (highlight && cage) {
     setHighlightState(highlight, cage);
   }
@@ -1136,7 +1692,7 @@ function prepHighlightState() {
 // Set the highlighted class to date elements, when focus is received
 function setHighlightState(newHighlight, container) {
   const prevHighlight = getCurrentDate(container);
-  
+
   // Remove the highlight state from previously
   // highlighted date and add it ot our newly active date
   prevHighlight.classList.remove('ui-state-highlight');
@@ -1154,14 +1710,29 @@ function getCurrentDate(container) {
 function appendOffscreenMonthText(button) {
   const isNext = button.classList.contains('ui-datepicker-next');
   const months = [
-    'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
   ];
-  
-  const currentMonth = document.querySelector('.ui-datepicker-title .ui-datepicker-month').textContent.toLowerCase();
+
+  const currentMonth = document
+    .querySelector('.ui-datepicker-title .ui-datepicker-month')
+    .textContent.toLowerCase();
   const monthIndex = months.findIndex(month => month === currentMonth);
-  let currentYear = document.querySelector('.ui-datepicker-title .ui-datepicker-year').textContent.toLowerCase();
+  let currentYear = document
+    .querySelector('.ui-datepicker-title .ui-datepicker-year')
+    .textContent.toLowerCase();
   let adjacentIndex = isNext ? monthIndex + 1 : monthIndex - 1;
-  
+
   if (isNext && currentMonth === 'december') {
     currentYear = parseInt(currentYear, 10) + 1;
     adjacentIndex = 0;
@@ -1169,11 +1740,14 @@ function appendOffscreenMonthText(button) {
     currentYear = parseInt(currentYear, 10) - 1;
     adjacentIndex = months.length - 1;
   }
-  
+
   const buttonText = isNext
     ? 'Next Month, ' + firstToCap(months[adjacentIndex]) + ' ' + currentYear
-    : 'Previous Month, ' + firstToCap(months[adjacentIndex]) + ' ' + currentYear;
-  
+    : 'Previous Month, ' +
+      firstToCap(months[adjacentIndex]) +
+      ' ' +
+      currentYear;
+
   button.querySelector('.ui-icon').innerHTML = buttonText;
 }
 

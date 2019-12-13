@@ -1,0 +1,28 @@
+{
+  "root": true,
+  "extends": [
+    "eslint:recommended",
+    "plugin:prettier/recommended",
+    "prettier/vue"
+  ],
+  "env": {
+    "node": true,
+    "es6": true,
+    "browser": true
+  },
+  "parserOptions": {
+    "parser": "babel-eslint",
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "globalReturn": true,
+      "generators": false,
+      "objectLiteralDuplicateProperties": false
+    }
+  },
+
+  "rules": {
+    "no-console": 0,
+    "vue/component-name-in-template-casing": 0
+  }
+}
