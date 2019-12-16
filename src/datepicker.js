@@ -1,3 +1,5 @@
+import './datepicker.css';
+
 // ===================================================================
 // Source code adapted (vanilla) from jQuery UI Datepicker:
 // https://github.com/jquery/jquery-ui/blob/master/ui/widgets/datepicker.js
@@ -16,7 +18,7 @@ function DatePicker() {
   // If the last event was a key event
   this.keyEvent = false;
   // List of date picker inputs that have been disabled
-  this.disabledInput = [];
+  this.disabledInputs = [];
   // True if the popup picker is showing , false if not
   this.datePickerShowing = false;
   // True if showing within a "dialog", false if not
@@ -240,8 +242,8 @@ function newInst(target, inline) {
 
 /* Attach the date picker to an input field. */
 function connectDatepicker(target, inst) {
-  inst.append = [];
-  inst.trigger = [];
+  inst.append = null;
+  inst.trigger = null;
   if (target.classList.contains(this.markerClassName)) {
     return;
   }
@@ -286,7 +288,7 @@ function attachments(input, inst) {
     );
   }
 
-  input.removeEventListener('focus', this.showDatePicker);
+  input.removeEventListener('focus', this.showDatepicker);
 
   if (inst.trigger) {
     /**
@@ -298,7 +300,7 @@ function attachments(input, inst) {
   const showOn = this.get(inst, 'showOn');
 
   if (showOn === 'focus' || showOn === 'both') {
-    input.addEventListener('focus', this.showDatePicker);
+    input.addEventListener('focus', this.showDatepicker);
   }
   if (showOn === 'button' || showOn === 'both') {
     const buttonText = this.get(inst, 'buttonText');
@@ -327,14 +329,15 @@ function attachments(input, inst) {
       isRTL ? 'beforebegin' : 'afterend',
       inst.trigger,
     );
+    const dp = window.__quno__.datepicker;
     inst.trigger.addEventListener('click', () => {
-      if (DatePicker.datepickerShowing && DatePicker.lastInput === input) {
-        DatePicker.hideDatepicker();
-      } else if (DatePicker.datepickerShowing) {
-        DatePicker.hideDatepicker();
-        DatePicker.showDatePicker(input);
+      if (dp.datepickerShowing && dp.lastInput === input) {
+        dp.hideDatepicker();
+      } else if (dp.datepickerShowing) {
+        dp.hideDatepicker();
+        dp.showDatepicker(input);
       } else {
-        DatePicker.showDatePicker(input);
+        dp.showDatepicker(input);
       }
 
       return false;
@@ -345,7 +348,514 @@ function attachments(input, inst) {
 function get(inst, name) {
   return inst.settings[name] !== undefined
     ? this.settings[name]
-    : this._defaults[name];
+    : this.defaults[name];
+}
+
+/* Pop-up the date picker for a given input field.
+ * If false returned from beforeShow event handler do not show.
+ * @param  input  element - the input field attached to the date picker or
+ *         event - if triggered by focus
+ */
+function showDatepicker(input) {
+  input = input.target || input;
+
+  // Find from button/image trigger
+  if (input.nodeName.toLowerCase() !== 'input') {
+    input = input.parentNode.querySelector('input');
+  }
+
+  const dp = window.__quno__.datepicker;
+  if (dp.isDisabledDatepicker(input) || dp.lastInput === input) {
+    // Already here
+    return;
+  }
+
+  const inst = dp.getInst(input);
+  if (dp.curInst && dp.curInst !== inst) {
+    /**
+     * @todo: REVIEW / REPLACE
+     */
+    // dp.curInst.dpDiv.stop(true, true);
+    if (inst && dp.datepickerShowing) {
+      dp.hideDatepicker(dp.curInst.input);
+    }
+  }
+
+  const beforeShow = dp.get(inst, 'beforeShow');
+  const beforeShowSettings = beforeShow
+    ? beforeShow.apply(input, [input, inst])
+    : {};
+  if (beforeShowSettings === false) {
+    return;
+  }
+  datepicker_extendRemove(inst.settings, beforeShowSettings);
+
+  inst.lastVal = null;
+  dp.lastInput = input;
+  dp.setDateFromField(inst);
+
+  if (dp.inDialog) {
+    // Hide cursor
+    input.value = '';
+  }
+
+  if (!dp.pos) {
+    // Position below input
+    dp.pos = dp.findPos(input);
+    // Add the height
+    dp.pos[1] += input.offsetHeight;
+  }
+
+  let isFixed = false;
+  let parent = input.parentElement;
+  while (parent) {
+    isFixed = getComputedStyle(parent).position === 'fixed';
+    if (isFixed) {
+      break;
+    }
+    parent = parent.parentElement;
+  }
+
+  let offset = { left: dp.pos[0], top: dp.pos[1] };
+  dp.pos = null;
+
+  // To avoid flashes on Firefox
+  inst.dpDiv.innerHTML = null; // inst.dpDiv.empty();
+
+  // Determine sizing offscreen
+  inst.dpDiv.style.position = 'absolute';
+  inst.dpDiv.style.display = 'block';
+  inst.dpDiv.style.top = '-1000px';
+
+  dp.updateDatepicker(inst);
+
+  // Fix width for dynamic number of date pickers
+  // and adjust position before showing
+  offset = dp.checkOffset(inst, offset, isFixed);
+  inst.dpDiv.style.position = dp.inDialog /* && $.blockUI */
+    ? 'static'
+    : isFixed
+    ? 'fixed'
+    : 'absolute';
+  inst.dpDiv.style.display = 'none';
+  inst.dpDiv.style.left = offset.left + 'px';
+  inst.dpDiv.style.top = offset.top + 'px';
+
+  if (!inst.inline) {
+    const showAnim = dp.get(inst, 'showAnim');
+    const duration = dp.get(inst, 'duration');
+    inst.dpDiv.style.zIndex = datepicker_getZindex(input) + 1;
+    dp.datepickerShowing = true;
+
+    // if ($.effects && $.effects.effect[showAnim])
+    // else
+    // inst.dpDiv[showAnim || 'show'](showAnim ? duration : null);
+    inst.dpDiv.style.display = 'block';
+
+    if (dp.shouldFocusInput(inst)) {
+      // inst.input.trigger('focus');
+      // inst.input.focus()
+      inst.input.dispatchEvent(new InputEvent('focus'));
+    }
+
+    dp.curInst = inst;
+  }
+}
+
+/* Parse existing date and initialise date picker. */
+function setDateFromField(inst, noDefault) {
+  if (inst.input.value === inst.lastVal) {
+    return;
+  }
+
+  const dateFormat = this.get(inst, 'dateFormat');
+  let dates = (inst.lastVal = inst.input ? inst.input.value : null);
+  console.log('[setDateFromField] dates');
+  console.log(dates);
+  const defaultDate = this.getDefaultDate(inst);
+  let date = defaultDate;
+  const settings = this.getFormatConfig(inst);
+
+  try {
+    date = this.parseDate(dateFormat, dates, settings) || defaultDate;
+  } catch (err) {
+    console.log('[setDateFromField] - ERROR');
+    console.log(err);
+    dates = noDefault ? '' : dates;
+  }
+
+  inst.selectedDay = date.getDate();
+  inst.drawMonth = inst.selectedMonth = date.getMonth();
+  inst.drawYear = inst.selectedYear = date.getFullYear();
+  inst.currentDay = dates ? date.getDate() : 0;
+  inst.currentMonth = dates ? date.getMonth() : 0;
+  inst.currentYear = dates ? date.getFullYear() : 0;
+  this.adjustInstDate(inst);
+}
+
+/* Parse a string value into a date object.
+ * See formatDate below for the possible formats.
+ *
+ * @param  format string - the expected format of the date
+ * @param  value string - the date in the above format
+ * @param  settings Object - attributes include:
+ *          shortYearCutoff  number - the cutoff year for determining the century (optional)
+ *          dayNamesShort string[7] - abbreviated names of the days from Sunday (optional)
+ *          dayNames    string[7] - names of the days from Sunday (optional)
+ *          monthNamesShort string[12] - abbreviated names of the months (optional)
+ *          monthNames    string[12] - names of the months (optional)
+ * @return  Date - the extracted date value or null if value is blank
+ */
+function parseDate(format, value, settings) {
+  if (format == null || value == null) {
+    throw 'Invalid arguments';
+  }
+  console.log('[parseDate]: Format, value');
+  console.log(format, value);
+
+  value = typeof value === 'object' ? value.toString() : value + '';
+  if (value === '') {
+    return null;
+  }
+
+  const shortYearCutoffTemp =
+    (settings ? settings.shortYearCutoff : null) ||
+    this.defaults.shortYearCutoff;
+  const shortYearCutoff =
+    typeof shortYearCutoffTemp !== 'string'
+      ? shortYearCutoffTemp
+      : (new Date().getFullYear() % 100) + parseInt(shortYearCutoffTemp, 10);
+  const dayNamesShort =
+    (settings ? settings.dayNamesShort : null) || this.defaults.dayNamesShort;
+  const dayNames =
+    (settings ? settings.dayNames : null) || this.defaults.dayNames;
+  const monthNamesShort =
+    (settings ? settings.monthNamesShort : null) ||
+    this.defaults.monthNamesShort;
+  const monthNames =
+    (settings ? settings.monthNames : null) || this.defaults.monthNames;
+
+  let iValue = 0;
+  let year = -1;
+  let month = -1;
+  let day = -1;
+  let doy = -1;
+  let literal = false;
+
+  let iFormat;
+  let date;
+  let extra;
+  let dim;
+
+  // Check whether a format character is doubled
+  const lookAhead = match => {
+    const matches =
+      iFormat + 1 < format.length && format.charAt(iFormat + 1) === match;
+    if (matches) {
+      iFormat++;
+    }
+    return matches;
+  };
+
+  // Extract a number from the string value
+  const getNumber = match => {
+    const isDoubled = lookAhead(match);
+    const size =
+      match === '@'
+        ? 14
+        : match === '!'
+        ? 20
+        : match === 'y' && isDoubled
+        ? 4
+        : match === 'o'
+        ? 3
+        : 2;
+    const minSize = match === 'y' ? size : 1;
+    const digits = new RegExp('^\\d{' + minSize + ',' + size + '}');
+    console.log({ minSize, size, digits });
+    const num = value.substring(iValue).match(digits);
+
+    if (!num) {
+      console.log(num, value, iValue);
+      throw 'Missing number at position ' + iValue;
+    }
+    iValue += num[0].length;
+    return parseInt(num[0], 10);
+  };
+
+  // Extract a name from the string value and convert to an index
+  const getName = (match, shortNames, longNames) => {
+    let index = -1;
+    const names = (lookAhead(match) ? longNames : shortNames)
+      .map((v, k) => [[k, v]])
+      .sort((a, b) => -(a[1].length - b[1].length));
+
+    names.forEach(pair => {
+      const name = pair[1];
+      if (
+        value.substring(iValue, name.length).toLowerCase() ===
+        name.toLowerCase()
+      ) {
+        index = pair[0];
+        iValue += name.length;
+        return false;
+      }
+    });
+
+    if (index !== -1) {
+      return index + 1;
+    } else {
+      throw 'Unknown name at position ' + iValue;
+    }
+  };
+
+  // Confirm that a literal character matches the string value
+  const checkLiteral = () => {
+    if (value.charAt(iValue) !== format.charAt(iFormat)) {
+      throw 'Unexpected literal at position ' + iValue;
+    }
+
+    iValue++;
+  };
+
+  for (iFormat = 0; iFormat < format.length; iFormat++) {
+    if (literal) {
+      if (format.charAt(iFormat) === "'" && !lookAhead("'")) {
+        literal = false;
+      } else {
+        checkLiteral();
+      }
+    } else {
+      switch (format.charAt(iFormat)) {
+        case 'd':
+          day = getNumber('d');
+          break;
+        case 'D':
+          getName('D', dayNamesShort, dayNames);
+          break;
+        case 'o':
+          doy = getNumber('o');
+          break;
+        case 'm':
+          month = getNumber('m');
+          break;
+        case 'M':
+          month = getName('M', monthNamesShort, monthNames);
+          break;
+        case 'y':
+          year = getNumber('y');
+          break;
+        case '@':
+          date = new Date(getNumber('@'));
+          year = date.getFullYear();
+          month = date.getMonth() + 1;
+          day = date.getDate();
+          break;
+        case '!':
+          date = new Date((getNumber('!') - this.ticksTo1970) / 10000);
+          year = date.getFullYear();
+          month = date.getMonth() + 1;
+          day = date.getDate();
+          break;
+        case "'":
+          if (lookAhead("'")) {
+            checkLiteral();
+          } else {
+            literal = true;
+          }
+          break;
+        default:
+          checkLiteral();
+      }
+    }
+  }
+
+  if (iValue < value.length) {
+    extra = value.substr(iValue);
+
+    if (!/^\s+/.test(extra)) {
+      throw 'Extra/unparsed characters found in date: ' + extra;
+    }
+  }
+
+  if (year === -1) {
+    year = new Date().getFullYear();
+  } else if (year < 100) {
+    year +=
+      new Date().getFullYear() -
+      (new Date().getFullYear() % 100) +
+      (year <= shortYearCutoff ? 0 : -100);
+  }
+
+  if (doy > -1) {
+    month = 1;
+    day = doy;
+
+    do {
+      dim = this.getDaysInMonth(year, month - 1);
+      if (day <= dim) {
+        break;
+      }
+
+      month++;
+      day -= dim;
+
+      // eslint-disable-next-line no-constant-condition
+    } while (true);
+  }
+
+  date = this.daylightSavingAdjust(new Date(year, month - 1, day));
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) {
+    // E.g. 31/02/00
+    throw 'Invalid date';
+  }
+
+  return date;
+}
+
+function findPos(el) {
+  const inst = this.getInst(el);
+  const isRTL = this.get(inst, 'isRTL');
+
+  while (
+    el &&
+    (el.type === 'hidden' ||
+      el.nodeType !== 1) /* || $.expr.pseudos.hidden(el) */
+  ) {
+    el = el[isRTL ? 'previousSibling' : 'nextSibling'];
+  }
+
+  const position = el.getBoundingClientRect();
+  return [
+    position.left + document.body.scrollTop,
+    position.top + document.body.scrollLeft,
+  ];
+}
+
+/* Check positioning to remain on screen. */
+function checkOffset(inst, offset, isFixed) {
+  const dpWidth = inst.dpDiv.offsetWidth;
+  const dpHeight = inst.dpDiv.offsetHeight;
+  const inputWidth = inst.input ? inst.input.offsetWidth : 0;
+  const inputHeight = inst.input ? inst.input.offsetHeight : 0;
+  const viewWidth =
+    document.documentElement.clientWidth +
+    (isFixed ? 0 : document.documentElement.scrollLeft);
+  const viewHeight =
+    document.documentElement.clientHeight +
+    (isFixed ? 0 : document.documentElement.scrollTop);
+
+  const inputOffset = inst.input.getBoundingClientRect();
+  offset.left -= this.get(inst, 'isRTL') ? dpWidth - inputWidth : 0;
+  offset.left -=
+    isFixed && offset.left === inputOffset.left
+      ? document.documentElement.scrollLeft
+      : 0;
+  offset.top -=
+    isFixed && offset.top === inputOffset.top + inputHeight
+      ? document.documentElement.scrollTop
+      : 0;
+
+  // Now check if datepicker is showing outside window viewport - move to a better place if so
+  offset.left -= Math.min(
+    offset.left,
+    offset.left + dpWidth > viewWidth && viewWidth > dpWidth
+      ? Math.abs(offset.left + dpWidth - viewWidth)
+      : 0,
+  );
+  offset.top -= Math.min(
+    offset.top,
+    offset.top + dpHeight > viewHeight && viewHeight > dpHeight
+      ? Math.abs(dpHeight - inputHeight)
+      : 0,
+  );
+
+  return offset;
+}
+
+function datepicker_getZindex(elem) {
+  while (elem && elem !== document) {
+    // Ignore z-index if position is set to a value where z-index is ignored by the browser
+    // This makes behavior of this function consistent across browsers
+    // WebKit always returns auto if the element is positioned
+    const cs = getComputedStyle(elem);
+    const position = cs.position;
+
+    if (
+      position === 'absolute' ||
+      position === 'relative' ||
+      position === 'fixed'
+    ) {
+      // IE returns 0 when zIndex is not specified
+      // other browsers return a string
+      // we ignore the case of nested elements with an explicit value of 0
+      // <div style="z-index: -10;"><div style="z-index: 0;"></div></div>
+      const value = parseInt(cs.zIndex, 10);
+      if (!isNaN(value) && value !== 0) {
+        return value;
+      }
+    }
+
+    elem = elem.parentElement;
+  }
+
+  return 0;
+}
+
+/* Hide the date picker from view.
+ * @param  input  element - the input field attached to the date picker
+ */
+function hideDatepicker(input) {
+  const inst = this.curInst;
+
+  if (!inst || (input && inst !== input.datepicker)) {
+    return;
+  }
+
+  if (this.datepickerShowing) {
+    const showAnim = this.get(inst, 'showAnim');
+    const duration = this.get(inst, 'duration');
+    const postProcess = () => window.__quno__.datepicker.tidyDialog(inst);
+
+    // inst.dpDiv[
+    //   showAnim === 'slideDown'
+    //     ? 'slideUp'
+    //     : showAnim === 'fadeIn'
+    //     ? 'fadeOut'
+    //     : 'hide'
+    // ](showAnim ? duration : null, postProcess);
+    inst.dpDiv.style.display = 'none';
+
+    if (!showAnim) {
+      postProcess();
+    }
+
+    this.datepickerShowing = false;
+
+    const onClose = this.get(inst, 'onClose');
+    if (onClose) {
+      onClose.apply(inst.input || null, [
+        inst.input ? inst.input.value : '',
+        inst,
+      ]);
+    }
+
+    this.lastInput = null;
+    if (this.inDialog) {
+      this.dialogInput.style.position = 'absolute';
+      this.dialogInput.style.left = '0';
+      this.dialogInput.style.top = '-100px';
+      // if ($.blockUI) {
+      //   $.unblockUI();
+      //   $('body').append(this.dpDiv);
+      // }
+    }
+    this.inDialog = false;
+  }
 }
 
 function autoSize(inst) {
@@ -699,19 +1209,20 @@ function determineDate(inst, date, defaultDate) {
     return _date;
   };
 
+  const dp = window.__quno__.datepicker;
   const offsetString = offset => {
     try {
-      return DatePicker.parseDate(
-        DatePicker.get(inst, 'dateFormat'),
+      return dp.parseDate(
+        dp.get(inst, 'dateFormat'),
         offset,
-        DatePicker.getFormatConfig(inst),
+        dp.getFormatConfig(inst),
       );
     } catch (e) {
       // Ignore
     }
 
     const _date =
-      (offset.toLowerCase().match(/^c/) ? DatePicker.getDate(inst) : null) ||
+      (offset.toLowerCase().match(/^c/) ? dp.getDate(inst) : null) ||
       new Date();
     let year = _date.getFullYear();
     let month = _date.getMonth();
@@ -734,13 +1245,13 @@ function determineDate(inst, date, defaultDate) {
         case 'm':
         case 'M':
           month += parseInt(matches[1], 10);
-          day = Math.min(day, DatePicker.getDaysInMonth(year, month));
+          day = Math.min(day, dp.getDaysInMonth(year, month));
           break;
 
         case 'y':
         case 'Y':
           year += parseInt(matches[1], 10);
-          day = Math.min(day, DatePicker.getDaysInMonth(year, month));
+          day = Math.min(day, dp.getDaysInMonth(year, month));
           break;
       }
       matches = pattern.exec(offset);
@@ -839,7 +1350,16 @@ function updateDatepicker(inst) {
   // For delegate hover events
   datepicker_instActive = inst;
   inst.dpDiv.innerHTML = '';
-  inst.dpDiv.appendChild(this.generateHTML(inst));
+  /**
+   * @todo:
+   *  Generate html returns a html string.
+   *  Either use innerHTML instead of appendChild
+   *  or change the function to return element
+   *  nodes instead.
+   */
+  // inst.dpDiv.appendChild(this.generateHTML(inst));
+  inst.dpDiv.innerHTML = this.generateHTML(inst);
+
   this.attachHandlers(inst);
 
   const numMonths = this.getNumberOfMonths(inst);
@@ -872,10 +1392,11 @@ function updateDatepicker(inst) {
   const addRemoveRTL = this.get(inst, 'isRTL') ? 'add' : 'remove';
   inst.dpDiv.classList[addRemoveRTL]('ui-datepicker-rtl');
 
+  const dp = window.__quno__.datepicker;
   if (
-    inst === DatePicker.curInst &&
-    DatePicker.datepickerShowing &&
-    DatePicker.shouldFocusInput(inst)
+    inst === dp.curInst &&
+    dp.datepickerShowing &&
+    dp.shouldFocusInput(inst)
   ) {
     /**
      * @todo: Review
@@ -961,7 +1482,7 @@ function generateHTML(inst) {
         this.getFormatConfig(inst),
       );
 
-  const prev = this._canAdjustMonth(inst, -1, drawYear, drawMonth)
+  const prev = this.canAdjustMonth(inst, -1, drawYear, drawMonth)
     ? "<a class='ui-datepicker-prev ui-corner-all' data-handler='prev' data-event='click'" +
       " title='" +
       prevText +
@@ -990,7 +1511,7 @@ function generateHTML(inst) {
         ),
         this.getFormatConfig(inst),
       );
-  const next = this._canAdjustMonth(inst, +1, drawYear, drawMonth)
+  const next = this.canAdjustMonth(inst, +1, drawYear, drawMonth)
     ? "<a class='ui-datepicker-next ui-corner-all' data-handler='next' data-event='click'" +
       " title='" +
       nextText +
@@ -1018,14 +1539,14 @@ function generateHTML(inst) {
 
   const controls = !inst.inline
     ? "<button type='button' class='ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all' data-handler='hide' data-event='click'>" +
-      this._get(inst, 'closeText') +
+      this.get(inst, 'closeText') +
       '</button>'
     : '';
 
   const buttonPanel = showButtonPanel
     ? "<div class='ui-datepicker-buttonpane ui-widget-content'>" +
       (isRTL ? controls : '') +
-      (this._isInRange(inst, gotoDate)
+      (this.isInRange(inst, gotoDate)
         ? "<button type='button' class='ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all' data-handler='today' data-event='click'" +
           '>' +
           currentText +
@@ -1038,14 +1559,14 @@ function generateHTML(inst) {
   let firstDay = parseInt(this.get(inst, 'firstDay'), 10);
   firstDay = isNaN(firstDay) ? 0 : firstDay;
 
-  const showWeek = this._get(inst, 'showWeek');
-  const dayNames = this._get(inst, 'dayNames');
-  const dayNamesMin = this._get(inst, 'dayNamesMin');
-  const monthNames = this._get(inst, 'monthNames');
-  const monthNamesShort = this._get(inst, 'monthNamesShort');
-  const beforeShowDay = this._get(inst, 'beforeShowDay');
-  const showOtherMonths = this._get(inst, 'showOtherMonths');
-  const selectOtherMonths = this._get(inst, 'selectOtherMonths');
+  const showWeek = this.get(inst, 'showWeek');
+  const dayNames = this.get(inst, 'dayNames');
+  const dayNamesMin = this.get(inst, 'dayNamesMin');
+  const monthNames = this.get(inst, 'monthNames');
+  const monthNamesShort = this.get(inst, 'monthNamesShort');
+  const beforeShowDay = this.get(inst, 'beforeShowDay');
+  const showOtherMonths = this.get(inst, 'showOtherMonths');
+  const selectOtherMonths = this.get(inst, 'selectOtherMonths');
   const defaultDate = this.getDefaultDate(inst);
   let html = '';
 
@@ -1056,16 +1577,590 @@ function generateHTML(inst) {
       const selectedDate = this.daylightSavingAdjust(
         new Date(drawYear, drawMonth, inst.selectedDay),
       );
-      const cornerClass = 'ui-corner-all';
+      let cornerClass = 'ui-corner-all';
       let calender = '';
 
       if (isMultiMonth) {
         calender += '<div class="ui-datepicker-group';
 
-        if ()
+        if (numMonths[1] > 1) {
+          switch (col) {
+            case 0:
+              calender += ' ui-datepicker-group-first';
+              cornerClass = ' ui-corner-' + (isRTL ? 'right' : 'left');
+              break;
+            case numMonths[1] - 1:
+              calender += ' ui-datepicker-group-last';
+              cornerClass = ' ui-corner-' + (isRTL ? 'left' : 'right');
+              break;
+            default:
+              calender += ' ui-datepicker-group-middle';
+              cornerClass = '';
+              break;
+          }
+        }
+        calender += '">';
       }
+
+      calender +=
+        '<div class="ui-datepicker-header ui-widget-header ui-helper-clearfix' +
+        cornerClass +
+        '">' +
+        (/all|left/.test(cornerClass) && row === 0
+          ? isRTL
+            ? next
+            : prev
+          : '') +
+        (/all|right/.test(cornerClass) && row === 0
+          ? isRTL
+            ? prev
+            : next
+          : '') +
+        // draw month headers
+        this.generateMonthYearHeader(
+          inst,
+          drawMonth,
+          drawYear,
+          minDate,
+          maxDate,
+          row > 0 || col > 0,
+          monthNames,
+          monthNamesShort,
+        ) +
+        '</div><table class="ui-datepicker-calendar"><thead>' +
+        '<tr>';
+
+      let thead = showWeek
+        ? '<th class="ui-datepicker-week-col">' +
+          this.get(inst, 'weekHeader') +
+          '</th>'
+        : '';
+
+      // Days of the week
+      for (let dow = 0; dow < 7; dow++) {
+        const day = (dow + firstDay) % 7;
+        thead +=
+          '<th scope="col"' +
+          ((dow + firstDay + 6) % 7 >= 5
+            ? ' class="ui-datepicker-week-end"'
+            : '') +
+          '>' +
+          '<span title="' +
+          dayNames[day] +
+          '">' +
+          dayNamesMin[day] +
+          '</span></th>';
+      }
+
+      calender += thead + '</tr></thead><tbody>';
+      const daysInMonth = this.getDaysInMonth(drawYear, drawMonth);
+
+      if (drawYear === inst.selectedYear && drawMonth === inst.selectedMonth) {
+        inst.selectedDay = Math.min(inst.selectedDay, daysInMonth);
+      }
+      const leadDays =
+        (this.getFirstDayOfMonth(drawYear, drawMonth) - firstDay + 7) % 7;
+
+      // Calculate the number of rows to generate
+      const curRows = Math.ceil((leadDays + daysInMonth) / 7);
+      //If multiple months, use the higher number of rows (see #7043)
+      const numRows = isMultiMonth
+        ? this.maxRows > curRows
+          ? this.maxRows
+          : curRows
+        : curRows;
+      this.maxRows = numRows;
+      let printDate = this.daylightSavingAdjust(
+        new Date(drawYear, drawMonth, 1 - leadDays),
+      );
+      console.log({ currentDate, printDate });
+
+      // Create datepicker rows
+      for (let dRow = 0; dRow < numRows; dRow++) {
+        calender += '<tr>';
+        let tbody = !showWeek
+          ? ''
+          : '<td class="ui-datepicker-week-col">' +
+            this.get(inst, 'calculateWeek')(printDate) +
+            '</td>';
+
+        // Create datepicker days
+        for (let dow = 0; dow < 7; dow++) {
+          const daySettings = beforeShowDay
+            ? beforeShowDay.apply(inst.input || null, [printDate])
+            : [true, ''];
+          const otherMonth = printDate.getMonth() !== drawMonth;
+          const unselectable =
+            (otherMonth && !selectOtherMonths) ||
+            !daySettings[0] ||
+            (minDate && printDate < minDate) ||
+            (maxDate && printDate > maxDate);
+
+          tbody +=
+            '<td class="' +
+            ((dow + firstDay + 6) % 7 >= 5 ? ' ui-datepicker-week-end' : '') + // highlight weekends
+            (otherMonth ? ' ui-datepicker-other-month' : '') + // highlight days from other months
+            ((printDate.getTime() === selectedDate.getTime() &&
+              drawMonth === inst.selectedMonth &&
+              inst._keyEvent) || // user pressed key
+            (defaultDate.getTime() === printDate.getTime() &&
+              defaultDate.getTime() === selectedDate.getTime())
+              ? // or defaultDate is current printedDate and defaultDate is selectedDate
+                ' ' + this.dayOverClass
+              : '') + // highlight selected day
+            (unselectable
+              ? ' ' + this.unselectableClass + ' ui-state-disabled'
+              : '') + // highlight unselectable days
+            (otherMonth && !showOtherMonths
+              ? ''
+              : ' ' +
+                daySettings[1] + // highlight custom dates
+                (printDate.getTime() === currentDate.getTime()
+                  ? ' ' + this.currentClass
+                  : '') + // highlight selected day
+                (printDate.getTime() === today.getTime()
+                  ? ' ui-datepicker-today'
+                  : '')) +
+            '"' + // highlight today (if different)
+            ((!otherMonth || showOtherMonths) && daySettings[2]
+              ? " title='" + daySettings[2].replace(/'/g, '&#39;') + "'"
+              : '') + // cell title
+            (unselectable
+              ? ''
+              : '" data-handler="selectDay" data-event="click" data-month="' +
+                printDate.getMonth() +
+                '" data-year="' +
+                printDate.getFullYear() +
+                '"') +
+            '>' + // actions
+            (otherMonth && !showOtherMonths
+              ? '&#xa0;' // display for other months
+              : unselectable
+              ? '<span class="ui-state-default">' +
+                printDate.getDate() +
+                '</span>'
+              : '<a class="ui-state-default' +
+                (printDate.getTime() === today.getTime()
+                  ? ' ui-state-highlight'
+                  : '') +
+                (printDate.getTime() === currentDate.getTime()
+                  ? ' ui-state-active'
+                  : '') + // highlight selected day
+                (otherMonth ? ' ui-priority-secondary' : '') + // distinguish dates from other months
+                '" href="#">' +
+                printDate.getDate() +
+                '</a>') +
+            '</td>'; // display selectable date
+
+          printDate.setDate(printDate.getDate() + 1);
+          printDate = this.daylightSavingAdjust(printDate);
+        }
+        calender += tbody + '</tr>';
+      }
+      drawMonth++;
+      if (drawMonth > 11) {
+        drawMonth = 0;
+        drawYear++;
+      }
+      calender +=
+        '</tbody></table>' +
+        (isMultiMonth
+          ? '</div>' +
+            (numMonths[0] > 0 && col === numMonths[1] - 1
+              ? '<div class="ui-datepicker-row-break"></div>'
+              : '')
+          : '');
+
+      group += calender;
+    }
+
+    html += group;
+  }
+
+  html += buttonPanel;
+  inst.keyEvent = false;
+  return html;
+}
+
+/* Determine the number of months to show. */
+function getNumberOfMonths(inst) {
+  const numMonths = this.get(inst, 'numberOfMonths');
+  return numMonths == null
+    ? [1, 1]
+    : typeof numMonths === 'number'
+    ? [1, numMonths]
+    : numMonths;
+}
+
+/* Determines if we should allow a "next/prev" month display change. */
+function canAdjustMonth(inst, offset, curYear, curMonth) {
+  const numMonths = this.getNumberOfMonths(inst);
+  const date = this.daylightSavingAdjust(
+    new Date(
+      curYear,
+      curMonth + (offset < 0 ? offset : numMonths[0] * numMonths[1]),
+      1,
+    ),
+  );
+
+  if (offset < 0) {
+    date.setDate(this.getDaysInMonth(date.getFullYear(), date.getMonth()));
+  }
+
+  return this.isInRange(inst, date);
+}
+
+/* Is the given date in the accepted range? */
+function isInRange(inst, date) {
+  const minDate = this.getMinMaxDate(inst, 'min');
+  const maxDate = this.getMinMaxDate(inst, 'max');
+  let minYear = null;
+  let maxYear = null;
+  let years = this.get(inst, 'yearRange');
+
+  if (years) {
+    const yearSplit = years.split(':');
+    const currentYear = new Date().getFullYear();
+    minYear = parseInt(yearSplit[0], 10);
+    maxYear = parseInt(yearSplit[1], 10);
+
+    if (yearSplit[0].match(/[+-].*/)) {
+      minYear += currentYear;
+    }
+    if (yearSplit[1].match(/[+-].*/)) {
+      maxYear += currentYear;
     }
   }
+
+  return (
+    (!minDate || date.getTime() >= minDate.getTime()) &&
+    (!maxDate || date.getTime() <= maxDate.getTime()) &&
+    (!minYear || date.getFullYear() >= minYear) &&
+    (!maxYear || date.getFullYear() <= maxYear)
+  );
+}
+
+/* Generate the month and year header. */
+function generateMonthYearHeader(
+  inst,
+  drawMonth,
+  drawYear,
+  minDate,
+  maxDate,
+  secondary,
+  monthNames,
+  monthNamesShort,
+) {
+  const changeMonth = this.get(inst, 'changeMonth');
+  const changeYear = this.get(inst, 'changeYear');
+  const showMonthAfterYear = this.get(inst, 'showMonthAfterYear');
+  let html = '<div class="ui-datepicker-title">';
+  let monthHtml = '';
+
+  // Month selection
+  if (secondary || !changeMonth) {
+    monthHtml +=
+      '<span class="ui-datepicker-month">' + monthNames[drawMonth] + '</span>';
+  } else {
+    let inMinYear = minDate && minDate.getFullYear() === drawYear;
+    let inMaxYear = maxDate && maxDate.getFullYear() === drawYear;
+    monthHtml +=
+      '<select class="ui-datepicker-month" data-handler="selectMonth" data-event="change">';
+    for (let month = 0; month < 12; month++) {
+      if (
+        (!inMinYear || month >= minDate.getMonth()) &&
+        (!inMaxYear || month <= maxDate.getMonth())
+      ) {
+        monthHtml +=
+          '<option value="' +
+          month +
+          '"' +
+          (month === drawMonth ? ' selected="selected"' : '') +
+          '>' +
+          monthNamesShort[month] +
+          '</option>';
+      }
+    }
+    monthHtml += '</select>';
+  }
+
+  if (!showMonthAfterYear) {
+    html +=
+      monthHtml + (secondary || !(changeMonth && changeYear) ? '&#xa0;' : '');
+  }
+
+  // Year selection
+  if (!inst.yearshtml) {
+    inst.yearshtml = '';
+    if (secondary || !changeYear) {
+      html += '<span class="ui-datepicker-year">' + drawYear + '</span>';
+    } else {
+      // Determine range of years to display
+      const years = this.get(inst, 'yearRange').split(':');
+      const thisYear = new Date().getFullYear();
+
+      const determineYear = value => {
+        const year = value.match(/c[+-].*/)
+          ? drawYear + parseInt(value.substring(1), 10)
+          : value.match(/[+-].*/)
+          ? thisYear + parseInt(value, 10)
+          : parseInt(value, 10);
+
+        return isNaN(year) ? thisYear : year;
+      };
+
+      let year = determineYear(years[0]);
+      let endYear = Math.max(year, determineYear(years[1] || ''));
+      year = minDate ? Math.max(year, minDate.getFullYear()) : year;
+      endYear = maxDate ? Math.min(endYear, maxDate.getFullYear()) : endYear;
+      inst.yearshtml +=
+        '<select class="ui-datepicker-year" data-handler="selectYear" data-event="change">';
+      for (; year <= endYear; year++) {
+        inst.yearshtml +=
+          '<option value="' +
+          year +
+          '"' +
+          (year === drawYear ? ' selected="selected"' : '') +
+          '>' +
+          year +
+          '</option>';
+      }
+      inst.yearshtml += '</select>';
+
+      html += inst.yearshtml;
+      inst.yearshtml = null;
+    }
+  }
+
+  html += this.get(inst, 'yearSuffix');
+  if (showMonthAfterYear) {
+    html +=
+      (secondary || !(changeMonth && changeYear) ? '&#xa0' : '') + monthHtml;
+  }
+  html += '</div>';
+  return html;
+}
+
+/* Find the day of the week of the first of a month. */
+function getFirstDayOfMonth(year, month) {
+  return new Date(year, month, 1).getDay();
+}
+
+/* Attach the onxxx handlers. These are declared statically so
+ * they work with static code transformers like Caja.
+ */
+function attachHandlers(inst) {
+  const stepMonths = this.get(inst, 'stepMonths');
+  const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
+  const dp = window.__quno__.datepicker;
+
+  Array.from(inst.dpDiv.querySelectorAll('[data-handler]'), el => {
+    const handler = {
+      prev() {
+        dp.adjustDate(id, -stepMonths, 'M');
+      },
+      next() {
+        dp.adjustDate(id, +stepMonths, 'M');
+      },
+      hide() {
+        dp.hideDatepicker();
+      },
+      today() {
+        dp.gotoToday(id);
+      },
+      selectDay() {
+        dp.selectDay(
+          id,
+          +el.getAttribute('data-month'),
+          +el.getAttribute('data-year'),
+          el,
+        );
+        return false;
+      },
+      selectMonth() {
+        dp.selectMonthYear(id, el, 'M');
+        return false;
+      },
+      selectYear() {
+        dp.selectMonthYear(id, el, 'Y');
+        return false;
+      },
+    };
+    el.addEventListener(
+      el.getAttribute('data-event'),
+      handler[el.getAttribute('data-handler')],
+    );
+  });
+}
+
+/* Adjust one of the date sub-fields. */
+function adjustDate(id, offset, period) {
+  const target = document.querySelector(id);
+  const inst = this.getInst(target);
+
+  if (this.isDisabledDatepicker(target)) {
+    return;
+  }
+
+  this.adjustInstDate(inst, offset, period);
+  this.updateDatepicker(inst);
+}
+
+/* Retrieve the instance data for the target control.
+ * @param  target  element - the target input field or division or span
+ * @return  object - the associated instance data
+ * @throws  error if a jQuery problem getting data
+ */
+function getInst(target) {
+  try {
+    return target.datepicker;
+  } catch (err) {
+    throw 'Missing instace data for this datepicker';
+  }
+}
+
+/* Is the first field in a jQuery collection disabled as a datepicker?
+ * @param  target	element - the target input field or division or span
+ * @return boolean - true if disabled, false if enabled
+ */
+function isDisabledDatepicker(target) {
+  if (!target) {
+    return false;
+  }
+
+  return this.disabledInputs.includes(target);
+}
+
+/* Tidy up after a dialog display. */
+function tidyDialog(inst) {
+  inst.dpDiv.classList.remove(this.dialogClass);
+  /**
+   * @todo: REVIEW
+   */
+  // inst.dpDiv.removeClass( this._dialogClass ).off( ".ui-datepicker-calendar" );
+  // inst.dpDiv.removeEventListener('.ui-datepicker-calendar') ???;
+}
+
+/* Action for current link. */
+function gotoToday(id) {
+  const target = document.querySelector(id);
+  const inst = this.getInst(target);
+
+  if (this.get(inst, 'gotoCurrent') && inst.currentDay) {
+    inst.selectedDay = inst.currentDay;
+    inst.drawMonth = inst.selectedMonth = inst.currentMonth;
+    inst.drawYear = inst.selectedYear = inst.currentYear;
+  } else {
+    const date = new Date();
+    inst.selectedDay = date.getDate();
+    inst.drawMonth = inst.selectedMonth = date.getMonth();
+    inst.drawYear = inst.selectedYear = date.getFullYear();
+  }
+
+  this.notifyChange(inst);
+  this.adjustDate(target);
+}
+
+/* Action for selecting a day. */
+function selectDay(id, month, year, td) {
+  const target = document.querySelector(id);
+
+  if (
+    td.classList.contains(this.unselectableClass) ||
+    this.isDisabledDatepicker(target)
+  ) {
+    return;
+  }
+
+  const inst = this.getInst(target);
+  inst.selectedDay = inst.currentDay = td.querySelector('a').innerHTML;
+  console.log('Selected Day: ' + inst.currentDay);
+  inst.selectedMonth = inst.currentMonth = month;
+  inst.selectedYear = inst.currentYear = year;
+  this.selectDate(
+    id,
+    this._formatDate(
+      inst,
+      inst.currentDay,
+      inst.currentMonth,
+      inst.currentYear,
+    ),
+  );
+}
+
+/* Update the input field with the selected date. */
+function selectDate(id, dateStr) {
+  const target = typeof id === 'string' ? document.querySelector(id) : id;
+  const inst = this.getInst(target);
+
+  dateStr = dateStr != null ? dateStr : this._formatDate(inst);
+
+  if (inst.input) {
+    inst.input.value = dateStr;
+  }
+
+  this.updateAlternate(inst);
+
+  const onSelect = this.get(inst, 'onSelect');
+  if (onSelect) {
+    // Trigger custom callback
+    onSelect.apply(inst.input || null, [dateStr, inst]);
+  } else if (inst.input) {
+    // Fire the change event
+    // inst.input.trigger('change')
+    inst.input.dispatchEvent(new InputEvent('change'));
+  }
+
+  if (inst.inline) {
+    this.updateDatepicker(inst);
+  } else {
+    this.hideDatepicker();
+    this.lastInput = inst.input;
+    if (typeof inst.input !== 'object') {
+      /**
+       * @todo: REVIEW
+       */
+      // inst.input.trigger('focus');
+      inst.input.dispatchEvent(new InputEvent('focus')); // ???
+    }
+    this.lastInput = null;
+  }
+}
+
+/* Update any alternate field to synchronise with the main field. */
+function updateAlternate(inst) {
+  const altField = this.get(inst, 'altField');
+
+  if (!altField) {
+    return;
+  }
+  // Update alternate field too
+  const altFormat = this.get(inst, 'altFormat') || this.get(inst, 'dateFormat');
+  const date = this.getDate(inst);
+  const dateStr = this.formatDate(altFormat, date, this.getFormatConfig(inst));
+  altField.value = dateStr;
+}
+
+/* Action for selecting a new month/year. */
+function selectMonthYear(id, select, period) {
+  const target = document.querySelector(id);
+  const inst = this.getInst(target);
+
+  const monthOrYear = period === 'M' ? 'Month' : 'Year';
+  inst['selected' + monthOrYear] = inst['draw' + monthOrYear] = parseInt(
+    select.options[select.selectedIndex].value,
+    10,
+  );
+
+  this.notifyChange(inst);
+  this.adjustDate(target);
+}
+
+// #6694 - don't focus the input if it's already focused
+// this breaks the change event in IE
+function shouldFocusInput(inst) {
+  // return (inst.input && inst.input.is(':visible') && !inst.input.is(':disabled') &&  !inst.input.is(':focus'));
+  return document.activeElement !== inst.input;
 }
 
 // PRIVATE FUNCTIONS (I guess...)
@@ -1099,18 +2194,24 @@ function datepicker_bindHover(dpDiv) {
   });
 
   dpDiv.addEventListener('mouseover', datepicker_handleMouseOver);
+
+  return dpDiv;
 }
 
 function datepicker_handleMouseOver(evt) {
+  let target = evt ? evt.target : this;
   const selector =
     'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td a';
-  if (!evt.target.matches(selector)) {
-    return;
+  if (!target.matches(selector)) {
+    if (!target.closest(selector)) {
+      return;
+    } else {
+      target = target.closest(selector);
+    }
   }
 
-  const { target } = evt;
   if (
-    DatePicker.isDisabledDatepicker(
+    !window.__quno__.datepicker.isDisabledDatepicker(
       datepicker_instActive.inline
         ? datepicker_instActive.dpDiv.parentElement
         : datepicker_instActive.input,
@@ -1119,10 +2220,11 @@ function datepicker_handleMouseOver(evt) {
     /**
      * @todo: REVIEW
      */
-    target
-      .closest('ui-datepicker-calendar')
-      .querySelector('a')
-      .classList.remove('ui-state-hover');
+    const calendar = target.closest('.ui-datepicker-calendar');
+    if (calendar) {
+      const hover = calendar.querySelector('a.ui-state-hover');
+      hover && hover.classList.remove('ui-state-hover');
+    }
     target.classList.add('ui-state-hover');
     if (target.className.includes('ui-datepicker-prev')) {
       target.classList.add('ui-datepicker-prev-hover');
@@ -1149,6 +2251,40 @@ function setDefaults(settings) {
   return this;
 }
 
+function datepicker_extendRemove(target, props) {
+  target = Object.assign(target, props);
+
+  for (const name in props) {
+    if (props[name] == null) {
+      target[name] = props[name];
+    }
+  }
+  return target;
+}
+
+/* Close date picker if clicked elsewhere. */
+function checkExternalClick(event) {
+  const dp = window.__quno__.datepicker;
+  if (!dp.curInst) {
+    return;
+  }
+
+  const { target } = event;
+  const inst = dp.getInst(target);
+
+  if (
+    (target.id !== dp.mainDivId &&
+      !target.closest(`#${dp.mainDivId}`) &&
+      !target.classList.contains(dp.markerClassName) &&
+      !target.closest(`.${dp.triggerClass}`)) ||
+    (target.classList.contains(dp.markerClassName) && dp.curInst !== inst)
+  ) {
+    dp.hideDatepicker();
+  }
+}
+
+// Return $.datepicker
+
 // ===================================================================
 //
 //  Map function to prototype (private functions can be left out)
@@ -1166,6 +2302,11 @@ proto.newInst = newInst;
 proto.connectDatepicker = connectDatepicker;
 proto.attachments = attachments;
 proto.get = get;
+proto.showDatepicker = showDatepicker;
+proto.setDateFromField = setDateFromField;
+proto.parseDate = parseDate;
+proto.findPos = findPos;
+proto.checkOffset = checkOffset;
 proto.autoSize = autoSize;
 proto._formatDate = _formatDate;
 proto.daylightSavingAdjust = daylightSavingAdjust;
@@ -1184,10 +2325,90 @@ proto.getDaysInMonth = getDaysInMonth;
 proto.getDefaultDate = getDefaultDate;
 proto.updateDatepicker = updateDatepicker;
 proto.generateHTML = generateHTML;
+proto.getNumberOfMonths = getNumberOfMonths;
+proto.canAdjustMonth = canAdjustMonth;
+proto.isInRange = isInRange;
+proto.generateMonthYearHeader = generateMonthYearHeader;
+proto.getFirstDayOfMonth = getFirstDayOfMonth;
+proto.attachHandlers = attachHandlers;
+proto.adjustDate = adjustDate;
+proto.getInst = getInst;
+proto.isDisabledDatepicker = isDisabledDatepicker;
+proto.hideDatepicker = hideDatepicker;
+proto.tidyDialog = tidyDialog;
+proto.gotoToday = gotoToday;
+proto.selectDay = selectDay;
+proto.selectDate = selectDate;
+proto.updateAlternate = updateAlternate;
+proto.selectMonthYear = selectMonthYear;
+proto.shouldFocusInput = shouldFocusInput;
+proto.checkExternalClick = checkExternalClick;
 
 // TBD
 proto.widgetDatePicker = widgetDatePicker;
 proto.setDefaults = setDefaults;
+
+/* Invoke the datepicker functionality. ($.fn.datepicker)
+ *  @param  options  string - a command, optionally followed by additional parameters
+ *  or Object - settings for attaching new datepicker functionality
+ *  @return  jQuery object
+ */
+const datepicker = function(selectorOrInput, options) {
+  // Verify an empty collection wasn't passed - Fixes #6976
+  if (!selectorOrInput) {
+    throw new Error(
+      'Cannot initialize datepicker: missing input element or selector.',
+    );
+  }
+
+  const element =
+    typeof selectorOrInput === 'string'
+      ? document.querySelector(selectorOrInput)
+      : selectorOrInput;
+
+  const dp = window.__quno__.datepicker;
+  // Initialise the date picker
+  if (!dp.initialized) {
+    document.addEventListener('mousedown', dp.checkExternalClick);
+    dp.initialized = true;
+  }
+
+  // Append datepicker main container to body if not exist
+  if (!document.getElementById(dp.mainDivId)) {
+    document.body.appendChild(dp.dpDiv);
+  }
+
+  const otherArgs = Array.prototype.slice.call(arguments, 1);
+  if (
+    typeof options === 'string' &&
+    (options === 'isDisabled' || options === 'getDate' || options === 'widget')
+  ) {
+    return dp[`${options}Datepicker`].apply(dp, [this].concat(otherArgs));
+  }
+
+  if (
+    options === 'option' &&
+    arguments.length === 2 &&
+    typeof arguments[1] === 'string'
+  ) {
+    return dp[`${options}Datepicker`].apply(dp, [this].concat(otherArgs));
+  }
+
+  return [element].forEach(function(el) {
+    typeof options === 'string'
+      ? dp[`${options}Datepicker`].apply(dp, [element].concat(otherArgs))
+      : dp.attachDatepicker(el, options);
+  });
+};
+
+// Singleton instance
+window.__quno__ = window.__quno__ || {};
+window.__quno__.datepicker = new DatePicker();
+window.__quno__.datepicker.initialized = false;
+window.__quno__.datepicker.uuid = new Date().getTime();
+window.__quno__.datepicker.version = '@VERSION';
+
+export { datepicker };
 
 // ===================================================================
 //

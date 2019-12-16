@@ -4,7 +4,8 @@
   "description": "",
   "main": "datepicker.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "parcel -p 8088 watch index.html"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +15,8 @@
     "eslint-config-prettier": "^6.7.0",
     "eslint-plugin-prettier": "^3.1.1",
     "prettier": "^1.19.1"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.12.4"
   }
 }

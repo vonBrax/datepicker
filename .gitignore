@@ -32,3 +32,4 @@ tnt/web/admin/templates
 tnt/web/frontend/patterns/patternIncludeMap.json
 ubuntu-xenial-16.04-cloudimg-console.log
 yarn-error.log
+dist
