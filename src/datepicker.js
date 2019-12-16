@@ -470,8 +470,6 @@ function setDateFromField(inst, noDefault) {
 
   const dateFormat = this.get(inst, 'dateFormat');
   let dates = (inst.lastVal = inst.input ? inst.input.value : null);
-  console.log('[setDateFromField] dates');
-  console.log(dates);
   const defaultDate = this.getDefaultDate(inst);
   let date = defaultDate;
   const settings = this.getFormatConfig(inst);
@@ -479,8 +477,6 @@ function setDateFromField(inst, noDefault) {
   try {
     date = this.parseDate(dateFormat, dates, settings) || defaultDate;
   } catch (err) {
-    console.log('[setDateFromField] - ERROR');
-    console.log(err);
     dates = noDefault ? '' : dates;
   }
 
@@ -510,8 +506,6 @@ function parseDate(format, value, settings) {
   if (format == null || value == null) {
     throw 'Invalid arguments';
   }
-  console.log('[parseDate]: Format, value');
-  console.log(format, value);
 
   value = typeof value === 'object' ? value.toString() : value + '';
   if (value === '') {
@@ -1482,24 +1476,44 @@ function generateHTML(inst) {
         this.getFormatConfig(inst),
       );
 
-  const prev = this.canAdjustMonth(inst, -1, drawYear, drawMonth)
-    ? "<a class='ui-datepicker-prev ui-corner-all' data-handler='prev' data-event='click'" +
-      " title='" +
-      prevText +
-      "'><span class='ui-icon ui-icon-circle-triangle-" +
-      (isRTL ? 'e' : 'w') +
-      "'>" +
-      prevText +
-      '</span></a>'
-    : hideIfNoPrevNext
-    ? ''
-    : "<a class='ui-datepicker-prev ui-corner-all ui-state-disabled' title='" +
-      prevText +
-      "'><span class='ui-icon ui-icon-circle-triangle-" +
-      (isRTL ? 'e' : 'w') +
-      "'>" +
-      prevText +
-      '</span></a>';
+  let prevEl;
+  const canAdjustPrev = this.canAdjustMonth(inst, -1, drawYear, drawMonth);
+  if (canAdjustPrev || !hideIfNoPrevNext) {
+    prevEl = document.createElement('a');
+    prevEl.setAttribute('class', 'ui-datepicker-prev ui-corner-all');
+    prevEl.setAttribute('data-handler', 'prev');
+    prevEl.setAttribute('data-event', 'click');
+    prevEl.setAttribute('title', prevText);
+    const span = document.createElement('span');
+    span.setAttribute(
+      'class',
+      `ui-icon ui-icon-circle-triangle-${isRTL ? 'e' : 'w'}`,
+    );
+    span.textContent = prevText;
+    prevEl.appendChild(span);
+  }
+  if (!canAdjustMonth && !hideIfNoPrevNext) {
+    prevEl.classList.add('ui-state-disabled');
+  }
+
+  // const prev = this.canAdjustMonth(inst, -1, drawYear, drawMonth)
+  //   ? "<a class='ui-datepicker-prev ui-corner-all' data-handler='prev' data-event='click'" +
+  //     " title='" +
+  //     prevText +
+  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
+  //     (isRTL ? 'e' : 'w') +
+  //     "'>" +
+  //     prevText +
+  //     '</span></a>'
+  //   : hideIfNoPrevNext
+  //   ? ''
+  //   : "<a class='ui-datepicker-prev ui-corner-all ui-state-disabled' title='" +
+  //     prevText +
+  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
+  //     (isRTL ? 'e' : 'w') +
+  //     "'>" +
+  //     prevText +
+  //     '</span></a>';
 
   let nextText = this.get(inst, 'nextText');
   nextText = !navigationAsDateFormat
@@ -1511,24 +1525,46 @@ function generateHTML(inst) {
         ),
         this.getFormatConfig(inst),
       );
-  const next = this.canAdjustMonth(inst, +1, drawYear, drawMonth)
-    ? "<a class='ui-datepicker-next ui-corner-all' data-handler='next' data-event='click'" +
-      " title='" +
-      nextText +
-      "'><span class='ui-icon ui-icon-circle-triangle-" +
-      (isRTL ? 'w' : 'e') +
-      "'>" +
-      nextText +
-      '</span></a>'
-    : hideIfNoPrevNext
-    ? ''
-    : "<a class='ui-datepicker-next ui-corner-all ui-state-disabled' title='" +
-      nextText +
-      "'><span class='ui-icon ui-icon-circle-triangle-" +
-      (isRTL ? 'w' : 'e') +
-      "'>" +
-      nextText +
-      '</span></a>';
+
+  let nextEl;
+  const canAdjustNext = this.canAdjustMonth(inst, +1, drawYear, drawMonth);
+  if (canAdjustNext || !hideIfNoPrevNext) {
+    nextEl = document.createElement('a');
+    nextEl.setAttribute('class', 'ui-datepicker-next ui-corner-all');
+    nextEl.setAttribute('data-handler', 'next');
+    nextEl.setAttribute('data-event', 'click');
+    nextEl.setAttribute('title', nextText);
+    const span = document.createElement('span');
+    span.setAttribute(
+      'class',
+      `ui-icon ui-icon-circle-triangle-${isRTL ? 'w' : 'e'}`,
+    );
+    span.textContent = nextText;
+    nextEl.appendChild(span);
+  }
+
+  if (!canAdjustNext && !hideIfNoPrevNext) {
+    nextEl.classList.add('ui-state-disabled');
+  }
+
+  // const next = this.canAdjustMonth(inst, +1, drawYear, drawMonth)
+  //   ? "<a class='ui-datepicker-next ui-corner-all' data-handler='next' data-event='click'" +
+  //     " title='" +
+  //     nextText +
+  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
+  //     (isRTL ? 'w' : 'e') +
+  //     "'>" +
+  //     nextText +
+  //     '</span></a>'
+  //   : hideIfNoPrevNext
+  //   ? ''
+  //   : "<a class='ui-datepicker-next ui-corner-all ui-state-disabled' title='" +
+  //     nextText +
+  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
+  //     (isRTL ? 'w' : 'e') +
+  //     "'>" +
+  //     nextText +
+  //     '</span></a>';
 
   let currentText = this.get(inst, 'currentText');
   const gotoDate =
@@ -1537,24 +1573,64 @@ function generateHTML(inst) {
     ? currentText
     : this.formatDate(currentText, gotoDate, this.getFormatConfig(inst));
 
-  const controls = !inst.inline
-    ? "<button type='button' class='ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all' data-handler='hide' data-event='click'>" +
-      this.get(inst, 'closeText') +
-      '</button>'
-    : '';
+  let controlsEl;
+  if (!inst.inline) {
+    controlsEl = document.createElement('button');
+    controlsEl.setAttribute('type', 'button');
+    controlsEl.setAttribute(
+      'class',
+      'ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all',
+    );
+    controlsEl.setAttribute('data-handler', 'hide');
+    controlsEl.setAttribute('data-event', 'click');
+    controlsEl.textContent = this.get(inst, 'closeText');
+  }
 
-  const buttonPanel = showButtonPanel
-    ? "<div class='ui-datepicker-buttonpane ui-widget-content'>" +
-      (isRTL ? controls : '') +
-      (this.isInRange(inst, gotoDate)
-        ? "<button type='button' class='ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all' data-handler='today' data-event='click'" +
-          '>' +
-          currentText +
-          '</button>'
-        : '') +
-      (isRTL ? '' : controls) +
-      '</div>'
-    : '';
+  // const controls = !inst.inline
+  //   ? "<button type='button' class='ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all' data-handler='hide' data-event='click'>" +
+  //     this.get(inst, 'closeText') +
+  //     '</button>'
+  //   : '';
+
+  let buttonPanelEl;
+  if (showButtonPanel) {
+    buttonPanelEl = document.createElement('div');
+    buttonPanelEl.setAttribute(
+      'class',
+      'ui-datepicker-buttonpanel ui-widget-content',
+    );
+    if (isRTL) {
+      buttonPanelEl.appendChild(controlsEl);
+    }
+    if (this.isInRange(inst, gotoDate)) {
+      const btn = document.createElement('button');
+      btn.setAttribute('type', 'buton');
+      btn.setAttribute(
+        'class',
+        'ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all',
+      );
+      btn.setAttribute('data-handler', 'today');
+      btn.setAttribute('data-event', 'click');
+      btn.textContent = currentText;
+      buttonPanelEl.appendChild(btn);
+    }
+    if (!isRTL) {
+      buttonPanelEl.appendChild(controlsEl);
+    }
+  }
+
+  // const buttonPanel = showButtonPanel
+  //   ? "<div class='ui-datepicker-buttonpanel ui-widget-content'>" +
+  //     (isRTL ? controls : '') +
+  //     (this.isInRange(inst, gotoDate)
+  //       ? "<button type='button' class='ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all' data-handler='today' data-event='click'" +
+  //         '>' +
+  //         currentText +
+  //         '</button>'
+  //       : '') +
+  //     (isRTL ? '' : controls) +
+  //     '</div>'
+  //   : '';
 
   let firstDay = parseInt(this.get(inst, 'firstDay'), 10);
   firstDay = isNaN(firstDay) ? 0 : firstDay;
@@ -1579,22 +1655,27 @@ function generateHTML(inst) {
       );
       let cornerClass = 'ui-corner-all';
       let calender = '';
+      const calenderEl = document.createElement('div');
 
       if (isMultiMonth) {
-        calender += '<div class="ui-datepicker-group';
+        // calender += '<div class="ui-datepicker-group';
+        calenderEl.classList.add('ui-datepicker-group');
 
         if (numMonths[1] > 1) {
           switch (col) {
             case 0:
-              calender += ' ui-datepicker-group-first';
+              // calender += ' ui-datepicker-group-first';
+              calenderEl.classList.add('ui-datepicker-group-first');
               cornerClass = ' ui-corner-' + (isRTL ? 'right' : 'left');
               break;
             case numMonths[1] - 1:
-              calender += ' ui-datepicker-group-last';
+              // calender += ' ui-datepicker-group-last';
+              calenderEl.classList.add('ui-datepicker-group-last');
               cornerClass = ' ui-corner-' + (isRTL ? 'left' : 'right');
               break;
             default:
-              calender += ' ui-datepicker-group-middle';
+              // calender += ' ui-datepicker-group-middle';
+              calenderEl.classList.add('ui-datepicker-group-middle');
               cornerClass = '';
               break;
           }
@@ -1602,57 +1683,110 @@ function generateHTML(inst) {
         calender += '">';
       }
 
-      calender +=
-        '<div class="ui-datepicker-header ui-widget-header ui-helper-clearfix' +
-        cornerClass +
-        '">' +
-        (/all|left/.test(cornerClass) && row === 0
-          ? isRTL
-            ? next
-            : prev
-          : '') +
-        (/all|right/.test(cornerClass) && row === 0
-          ? isRTL
-            ? prev
-            : next
-          : '') +
-        // draw month headers
-        this.generateMonthYearHeader(
-          inst,
-          drawMonth,
-          drawYear,
-          minDate,
-          maxDate,
-          row > 0 || col > 0,
-          monthNames,
-          monthNamesShort,
-        ) +
-        '</div><table class="ui-datepicker-calendar"><thead>' +
-        '<tr>';
+      const header = document.createElement('div');
+      header.setAttribute(
+        'class',
+        `ui-datepicker-header ui-widget-header ui-helper-clearfix ${cornerClass}`,
+      );
+      if (/all|left/.test(cornerClass) && row === 0) {
+        header.appendChild(isRTL ? nextEl : prevEl);
+      }
 
-      let thead = showWeek
-        ? '<th class="ui-datepicker-week-col">' +
-          this.get(inst, 'weekHeader') +
-          '</th>'
-        : '';
+      if (/all|right/.test(cornerClass) && row === 0) {
+        header.appendChild(isRTL ? prevEl : nextEl);
+      }
+
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = this.generateMonthYearHeader(
+        inst,
+        drawMonth,
+        drawYear,
+        minDate,
+        maxDate,
+        row > 0 || col > 0,
+        monthNames,
+        monthNamesShort,
+      );
+      header.appendChild(tempDiv.children[0].cloneNode(true));
+      calenderEl.appendChild(header);
+
+      // calender +=
+      //   '<div class="ui-datepicker-header ui-widget-header ui-helper-clearfix' +
+      //   cornerClass +
+      //   '">' +
+      //   (/all|left/.test(cornerClass) && row === 0
+      //     ? isRTL
+      //       ? next
+      //       : prev
+      //     : '') +
+      //   (/all|right/.test(cornerClass) && row === 0
+      //     ? isRTL
+      //       ? prev
+      //       : next
+      //     : '') +
+      //   // draw month headers
+      //   this.generateMonthYearHeader(
+      //     inst,
+      //     drawMonth,
+      //     drawYear,
+      //     minDate,
+      //     maxDate,
+      //     row > 0 || col > 0,
+      //     monthNames,
+      //     monthNamesShort,
+      //   ) +
+      //   '</div><table class="ui-datepicker-calendar"><thead>' +
+      //   '<tr>';
+
+      const tableEl = document.createElement('table');
+      tableEl.setAttribute('class', 'ui-datepicker-calendar');
+      const theadEl = document.createElement('thead');
+      const trEl = document.createElement('tr');
+      theadEl.appendChild(trEl);
+
+      // let thead = showWeek
+      //   ? '<th class="ui-datepicker-week-col">' +
+      //     this.get(inst, 'weekHeader') +
+      //     '</th>'
+      //   : '';
+
+      if (showWeek) {
+        const th = document.createElement('th');
+        th.setAttribute('class', 'ui-datepicker-week-col');
+        th.textContent = this.get(inst, 'weekHeader');
+        trEl.appendChild(th);
+      }
 
       // Days of the week
       for (let dow = 0; dow < 7; dow++) {
         const day = (dow + firstDay) % 7;
-        thead +=
-          '<th scope="col"' +
-          ((dow + firstDay + 6) % 7 >= 5
-            ? ' class="ui-datepicker-week-end"'
-            : '') +
-          '>' +
-          '<span title="' +
-          dayNames[day] +
-          '">' +
-          dayNamesMin[day] +
-          '</span></th>';
+        const th = document.createElement('th');
+        th.setAttribute('scope', 'col');
+        if ((dow + firstDay + 6) % 7 >= 5) {
+          th.setAttribute('class', 'ui-datepicker-week-end');
+        }
+        const span = document.createElement('span');
+        span.setAttribute('title', dayNames[day]);
+        span.textContent = dayNamesMin[day];
+        th.appendChild(span);
+        theadEl.appendChild(th);
+
+        // thead +=
+        //   '<th scope="col"' +
+        //   ((dow + firstDay + 6) % 7 >= 5
+        //     ? ' class="ui-datepicker-week-end"'
+        //     : '') +
+        //   '>' +
+        //   '<span title="' +
+        //   dayNames[day] +
+        //   '">' +
+        //   dayNamesMin[day] +
+        //   '</span></th>';
       }
 
-      calender += thead + '</tr></thead><tbody>';
+      // calender += thead + '</tr></thead><tbody>';
+      tableEl.appendChild(theadEl);
+
       const daysInMonth = this.getDaysInMonth(drawYear, drawMonth);
 
       if (drawYear === inst.selectedYear && drawMonth === inst.selectedMonth) {
@@ -1673,16 +1807,24 @@ function generateHTML(inst) {
       let printDate = this.daylightSavingAdjust(
         new Date(drawYear, drawMonth, 1 - leadDays),
       );
-      console.log({ currentDate, printDate });
 
+      const tbody = document.createElement('tbody');
       // Create datepicker rows
       for (let dRow = 0; dRow < numRows; dRow++) {
-        calender += '<tr>';
-        let tbody = !showWeek
-          ? ''
-          : '<td class="ui-datepicker-week-col">' +
-            this.get(inst, 'calculateWeek')(printDate) +
-            '</td>';
+        const tr = document.createElement('tr');
+        if (showWeek) {
+          const td = document.createElement('td');
+          td.setAttribute('class', 'ui-datepicker-week-col');
+          td.textContent = this.get(inst, 'calculateWeek')(printDate);
+          tr.appendChild(td);
+        }
+
+        // calender += '<tr>';
+        // let tbody = !showWeek
+        //   ? ''
+        //   : '<td class="ui-datepicker-week-col">' +
+        //     this.get(inst, 'calculateWeek')(printDate) +
+        //     '</td>';
 
         // Create datepicker days
         for (let dow = 0; dow < 7; dow++) {
@@ -1695,6 +1837,8 @@ function generateHTML(inst) {
             !daySettings[0] ||
             (minDate && printDate < minDate) ||
             (maxDate && printDate > maxDate);
+
+          const td = document.createElement('td');
 
           tbody +=
             '<td class="' +
