@@ -177,6 +177,11 @@ function DatePicker() {
     constrainInput: true,
     // True to show button panel, false to not show it
     showButtonPanel: false,
+    // Customize buttons to show (CUSTOM MOD)
+    buttonPanelOptions: {
+      today: true,
+      close: true,
+    },
     // True to size the input for the date format, false to leave as is
     autoSize: false,
     // The initial disabled state
@@ -312,11 +317,13 @@ function attachments(input, inst) {
     img.setAttribute('title', buttonText);
     if (this.get(inst, 'buttonImageOnly')) {
       img.setAttribute('class', this.triggerClass);
+      img.setAttribute('aria-describedby', 'datepickerLabel');
       inst.trigger = img;
     } else {
       const btn = document.createElement('btn');
       btn.setAttribute('type', 'button');
       btn.setAttribute('class', this.triggerClass);
+      btn.setAttribute('aria-describedby', 'datepickerLabel');
       if (buttonImage) {
         btn.appendChild(img);
       } else {
@@ -460,6 +467,39 @@ function showDatepicker(input) {
 
     dp.curInst = inst;
   }
+
+  /**
+   *  =======================
+   *  Init a11y changes
+   *  =======================
+   */
+
+  // Hide the entire page (except the date picker)
+  // from screen readers to prevent documnet navigation
+  // (by headings, etc.) while the popup is open
+  const main = document.querySelector('main');
+  if (main) {
+    main.setAttribute('aria-hidden', 'true');
+  }
+  const skipNav = document.querySelector('#skipnav');
+  if (skipNav) {
+    skipNav.setAttribute('aria-hidden', 'true');
+  }
+  const today =
+    inst.dpDiv.querySelector('.ui-state-highlight') ||
+    inst.dpDiv.querySelector('.ui-datepicker-today button') ||
+    inst.dpDiv.querySelector('.ui-state-active') ||
+    inst.dpDiv.querySelector('.ui-state-default');
+
+  if (today) {
+    today.focus();
+  }
+
+  /**
+   *  =======================
+   *  End a11y changes
+   *  =======================
+   */
 }
 
 /* Parse existing date and initialise date picker. */
@@ -1545,7 +1585,9 @@ function generateHTML(inst) {
     : this.formatDate(currentText, gotoDate, this.getFormatConfig(inst));
 
   let controlsEl;
-  if (!inst.inline) {
+  let buttonPanelOptions = this.get(inst, 'buttonPanelOptions') || {};
+
+  if (!inst.inline && buttonPanelOptions.close) {
     controlsEl = document.createElement('button');
     controlsEl.setAttribute('type', 'button');
     controlsEl.setAttribute(
@@ -1562,12 +1604,12 @@ function generateHTML(inst) {
     buttonPanelEl = document.createElement('div');
     buttonPanelEl.setAttribute(
       'class',
-      'ui-datepicker-buttonpanel ui-widget-content',
+      'ui-datepicker-buttonpane ui-widget-content',
     );
-    if (isRTL) {
+    if (isRTL && controlsEl) {
       buttonPanelEl.appendChild(controlsEl);
     }
-    if (this.isInRange(inst, gotoDate)) {
+    if (this.isInRange(inst, gotoDate) && buttonPanelOptions.today) {
       const btn = document.createElement('button');
       btn.setAttribute('type', 'buton');
       btn.setAttribute(
@@ -1579,7 +1621,7 @@ function generateHTML(inst) {
       btn.textContent = currentText;
       buttonPanelEl.appendChild(btn);
     }
-    if (!isRTL) {
+    if (!isRTL && controlsEl) {
       buttonPanelEl.appendChild(controlsEl);
     }
   }

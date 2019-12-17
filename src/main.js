@@ -6,6 +6,10 @@ const options = {
   buttonImageOnly: false,
   buttonText: 'Calendar View',
   showButtonPanel: true,
+  buttonPanelOptions: {
+    today: false,
+    close: true,
+  },
   closeText: 'Close',
   // dayNamesShort: [
   //   'Sunday',
