@@ -347,7 +347,7 @@ function attachments(input, inst) {
 
 function get(inst, name) {
   return inst.settings[name] !== undefined
-    ? this.settings[name]
+    ? inst.settings[name]
     : this.defaults[name];
 }
 
@@ -2051,7 +2051,7 @@ function attachHandlers(inst) {
 
 /* Adjust one of the date sub-fields. */
 function adjustDate(id, offset, period) {
-  const target = document.querySelector(id);
+  const target = typeof id === 'string' ? document.querySelector(id) : id;
   const inst = this.getInst(target);
 
   if (this.isDisabledDatepicker(target)) {
