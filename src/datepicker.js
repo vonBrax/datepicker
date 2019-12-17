@@ -186,7 +186,7 @@ function DatePicker() {
   this.defaults = Object.assign(this.defaults, this.regional['']);
   this.regional.en = JSON.parse(JSON.stringify(this.regional['']));
   this.regional['en-US'] = JSON.parse(JSON.stringify(this.regional['']));
-  // const html = `<div id="${this._mainDivId}" class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
+
   const div = document.createElement('div');
   div.setAttribute('id', this.mainDivId);
   div.setAttribute(
@@ -226,7 +226,7 @@ function newInst(target, inline) {
     'class',
     `${this.inlineClass} ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all`,
   );
-  // const html = `<div class="${this.inlineClass} ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all"></div>`;
+
   return {
     id,
     input: target,
@@ -504,7 +504,7 @@ function setDateFromField(inst, noDefault) {
  */
 function parseDate(format, value, settings) {
   if (format == null || value == null) {
-    throw 'Invalid arguments';
+    throw new Error('Invalid arguments');
   }
 
   value = typeof value === 'object' ? value.toString() : value + '';
@@ -566,12 +566,10 @@ function parseDate(format, value, settings) {
         : 2;
     const minSize = match === 'y' ? size : 1;
     const digits = new RegExp('^\\d{' + minSize + ',' + size + '}');
-    console.log({ minSize, size, digits });
     const num = value.substring(iValue).match(digits);
 
     if (!num) {
-      console.log(num, value, iValue);
-      throw 'Missing number at position ' + iValue;
+      throw new Error('Missing number at position ' + iValue);
     }
     iValue += num[0].length;
     return parseInt(num[0], 10);
@@ -599,14 +597,14 @@ function parseDate(format, value, settings) {
     if (index !== -1) {
       return index + 1;
     } else {
-      throw 'Unknown name at position ' + iValue;
+      throw new Error('Unknown name at position ' + iValue);
     }
   };
 
   // Confirm that a literal character matches the string value
   const checkLiteral = () => {
     if (value.charAt(iValue) !== format.charAt(iFormat)) {
-      throw 'Unexpected literal at position ' + iValue;
+      throw new Error('Unexpected literal at position ' + iValue);
     }
 
     iValue++;
@@ -668,7 +666,7 @@ function parseDate(format, value, settings) {
     extra = value.substr(iValue);
 
     if (!/^\s+/.test(extra)) {
-      throw 'Extra/unparsed characters found in date: ' + extra;
+      throw new Error('Extra/unparsed characters found in date: ' + extra);
     }
   }
 
@@ -705,7 +703,7 @@ function parseDate(format, value, settings) {
     date.getDate() !== day
   ) {
     // E.g. 31/02/00
-    throw 'Invalid date';
+    throw new Error('Invalid date');
   }
 
   return date;
@@ -1351,8 +1349,7 @@ function updateDatepicker(inst) {
    *  or change the function to return element
    *  nodes instead.
    */
-  // inst.dpDiv.appendChild(this.generateHTML(inst));
-  inst.dpDiv.innerHTML = this.generateHTML(inst);
+  inst.dpDiv.appendChild(this.generateHTML(inst));
 
   this.attachHandlers(inst);
 
@@ -1399,17 +1396,27 @@ function updateDatepicker(inst) {
   }
 
   // Deffered render of the years select (to avoid flashes on Firefox)
+  // if (inst.yearshtml) {
+  //   let origYearsHTML = inst.yearshtml;
+  //   setTimeout(() => {
+  //     //assure that inst.yearshtml didn't change.
+  //     if (inst.yearshtml && origYearsHTML === inst.yearshtml) {
+  //       inst.dpDiv
+  //         .querySelector('select.ui-datepicker-year')
+  //         .replaceWith(inst.yearshtml);
+  //     }
+  //     origYearsHTML = inst.yearshtml = null;
+  //   }, 0);
+  // }
+
+  // The function above probably never runs as
+  // inst.yearshtml gets modified only in the
+  // generateMonthYearHeader function and where
+  // it's value is also set to null at the end
   if (inst.yearshtml) {
-    let origYearsHTML = inst.yearshtml;
-    setTimeout(() => {
-      //assure that inst.yearshtml didn't change.
-      if (inst.yearshtml && origYearsHTML === inst.yearshtml) {
-        inst.dpDiv
-          .querySelector('select.ui-datepicker-year')
-          .replaceWith(inst.yearshtml);
-      }
-      origYearsHTML = inst.yearshtml = null;
-    }, 0);
+    console.log(inst);
+    console.log(inst.yearshtml);
+    throw new Error('Apparent inst.yearshtml does have a value...');
   }
 }
 
@@ -1479,7 +1486,8 @@ function generateHTML(inst) {
   let prevEl;
   const canAdjustPrev = this.canAdjustMonth(inst, -1, drawYear, drawMonth);
   if (canAdjustPrev || !hideIfNoPrevNext) {
-    prevEl = document.createElement('a');
+    // prevEl = document.createElement('a');
+    prevEl = document.createElement('button');
     prevEl.setAttribute('class', 'ui-datepicker-prev ui-corner-all');
     prevEl.setAttribute('data-handler', 'prev');
     prevEl.setAttribute('data-event', 'click');
@@ -1496,25 +1504,6 @@ function generateHTML(inst) {
     prevEl.classList.add('ui-state-disabled');
   }
 
-  // const prev = this.canAdjustMonth(inst, -1, drawYear, drawMonth)
-  //   ? "<a class='ui-datepicker-prev ui-corner-all' data-handler='prev' data-event='click'" +
-  //     " title='" +
-  //     prevText +
-  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
-  //     (isRTL ? 'e' : 'w') +
-  //     "'>" +
-  //     prevText +
-  //     '</span></a>'
-  //   : hideIfNoPrevNext
-  //   ? ''
-  //   : "<a class='ui-datepicker-prev ui-corner-all ui-state-disabled' title='" +
-  //     prevText +
-  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
-  //     (isRTL ? 'e' : 'w') +
-  //     "'>" +
-  //     prevText +
-  //     '</span></a>';
-
   let nextText = this.get(inst, 'nextText');
   nextText = !navigationAsDateFormat
     ? nextText
@@ -1529,7 +1518,8 @@ function generateHTML(inst) {
   let nextEl;
   const canAdjustNext = this.canAdjustMonth(inst, +1, drawYear, drawMonth);
   if (canAdjustNext || !hideIfNoPrevNext) {
-    nextEl = document.createElement('a');
+    // nextEl = document.createElement('a');
+    nextEl = document.createElement('button');
     nextEl.setAttribute('class', 'ui-datepicker-next ui-corner-all');
     nextEl.setAttribute('data-handler', 'next');
     nextEl.setAttribute('data-event', 'click');
@@ -1546,25 +1536,6 @@ function generateHTML(inst) {
   if (!canAdjustNext && !hideIfNoPrevNext) {
     nextEl.classList.add('ui-state-disabled');
   }
-
-  // const next = this.canAdjustMonth(inst, +1, drawYear, drawMonth)
-  //   ? "<a class='ui-datepicker-next ui-corner-all' data-handler='next' data-event='click'" +
-  //     " title='" +
-  //     nextText +
-  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
-  //     (isRTL ? 'w' : 'e') +
-  //     "'>" +
-  //     nextText +
-  //     '</span></a>'
-  //   : hideIfNoPrevNext
-  //   ? ''
-  //   : "<a class='ui-datepicker-next ui-corner-all ui-state-disabled' title='" +
-  //     nextText +
-  //     "'><span class='ui-icon ui-icon-circle-triangle-" +
-  //     (isRTL ? 'w' : 'e') +
-  //     "'>" +
-  //     nextText +
-  //     '</span></a>';
 
   let currentText = this.get(inst, 'currentText');
   const gotoDate =
@@ -1585,12 +1556,6 @@ function generateHTML(inst) {
     controlsEl.setAttribute('data-event', 'click');
     controlsEl.textContent = this.get(inst, 'closeText');
   }
-
-  // const controls = !inst.inline
-  //   ? "<button type='button' class='ui-datepicker-close ui-state-default ui-priority-primary ui-corner-all' data-handler='hide' data-event='click'>" +
-  //     this.get(inst, 'closeText') +
-  //     '</button>'
-  //   : '';
 
   let buttonPanelEl;
   if (showButtonPanel) {
@@ -1619,19 +1584,6 @@ function generateHTML(inst) {
     }
   }
 
-  // const buttonPanel = showButtonPanel
-  //   ? "<div class='ui-datepicker-buttonpanel ui-widget-content'>" +
-  //     (isRTL ? controls : '') +
-  //     (this.isInRange(inst, gotoDate)
-  //       ? "<button type='button' class='ui-datepicker-current ui-state-default ui-priority-secondary ui-corner-all' data-handler='today' data-event='click'" +
-  //         '>' +
-  //         currentText +
-  //         '</button>'
-  //       : '') +
-  //     (isRTL ? '' : controls) +
-  //     '</div>'
-  //   : '';
-
   let firstDay = parseInt(this.get(inst, 'firstDay'), 10);
   firstDay = isNaN(firstDay) ? 0 : firstDay;
 
@@ -1644,43 +1596,39 @@ function generateHTML(inst) {
   const showOtherMonths = this.get(inst, 'showOtherMonths');
   const selectOtherMonths = this.get(inst, 'selectOtherMonths');
   const defaultDate = this.getDefaultDate(inst);
-  let html = '';
+  const htmlEl = document.createDocumentFragment();
 
   for (let row = 0; row < numMonths[0]; row++) {
-    let group = '';
+    const groupEl = document.createDocumentFragment();
     this.maxRows = 4;
     for (let col = 0; col < numMonths[1]; col++) {
       const selectedDate = this.daylightSavingAdjust(
         new Date(drawYear, drawMonth, inst.selectedDay),
       );
       let cornerClass = 'ui-corner-all';
-      let calender = '';
-      const calenderEl = document.createElement('div');
+      const calenderEl = isMultiMonth
+        ? document.createElement('div')
+        : document.createDocumentFragment();
 
       if (isMultiMonth) {
-        // calender += '<div class="ui-datepicker-group';
         calenderEl.classList.add('ui-datepicker-group');
 
         if (numMonths[1] > 1) {
           switch (col) {
             case 0:
-              // calender += ' ui-datepicker-group-first';
               calenderEl.classList.add('ui-datepicker-group-first');
               cornerClass = ' ui-corner-' + (isRTL ? 'right' : 'left');
               break;
             case numMonths[1] - 1:
-              // calender += ' ui-datepicker-group-last';
               calenderEl.classList.add('ui-datepicker-group-last');
               cornerClass = ' ui-corner-' + (isRTL ? 'left' : 'right');
               break;
             default:
-              // calender += ' ui-datepicker-group-middle';
               calenderEl.classList.add('ui-datepicker-group-middle');
               cornerClass = '';
               break;
           }
         }
-        calender += '">';
       }
 
       const header = document.createElement('div');
@@ -1696,8 +1644,7 @@ function generateHTML(inst) {
         header.appendChild(isRTL ? prevEl : nextEl);
       }
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = this.generateMonthYearHeader(
+      const monthYearHeader = this.generateMonthYearHeader(
         inst,
         drawMonth,
         drawYear,
@@ -1707,48 +1654,14 @@ function generateHTML(inst) {
         monthNames,
         monthNamesShort,
       );
-      header.appendChild(tempDiv.children[0].cloneNode(true));
+      header.appendChild(monthYearHeader);
       calenderEl.appendChild(header);
-
-      // calender +=
-      //   '<div class="ui-datepicker-header ui-widget-header ui-helper-clearfix' +
-      //   cornerClass +
-      //   '">' +
-      //   (/all|left/.test(cornerClass) && row === 0
-      //     ? isRTL
-      //       ? next
-      //       : prev
-      //     : '') +
-      //   (/all|right/.test(cornerClass) && row === 0
-      //     ? isRTL
-      //       ? prev
-      //       : next
-      //     : '') +
-      //   // draw month headers
-      //   this.generateMonthYearHeader(
-      //     inst,
-      //     drawMonth,
-      //     drawYear,
-      //     minDate,
-      //     maxDate,
-      //     row > 0 || col > 0,
-      //     monthNames,
-      //     monthNamesShort,
-      //   ) +
-      //   '</div><table class="ui-datepicker-calendar"><thead>' +
-      //   '<tr>';
 
       const tableEl = document.createElement('table');
       tableEl.setAttribute('class', 'ui-datepicker-calendar');
       const theadEl = document.createElement('thead');
       const trEl = document.createElement('tr');
       theadEl.appendChild(trEl);
-
-      // let thead = showWeek
-      //   ? '<th class="ui-datepicker-week-col">' +
-      //     this.get(inst, 'weekHeader') +
-      //     '</th>'
-      //   : '';
 
       if (showWeek) {
         const th = document.createElement('th');
@@ -1770,21 +1683,8 @@ function generateHTML(inst) {
         span.textContent = dayNamesMin[day];
         th.appendChild(span);
         theadEl.appendChild(th);
-
-        // thead +=
-        //   '<th scope="col"' +
-        //   ((dow + firstDay + 6) % 7 >= 5
-        //     ? ' class="ui-datepicker-week-end"'
-        //     : '') +
-        //   '>' +
-        //   '<span title="' +
-        //   dayNames[day] +
-        //   '">' +
-        //   dayNamesMin[day] +
-        //   '</span></th>';
       }
 
-      // calender += thead + '</tr></thead><tbody>';
       tableEl.appendChild(theadEl);
 
       const daysInMonth = this.getDaysInMonth(drawYear, drawMonth);
@@ -1808,7 +1708,8 @@ function generateHTML(inst) {
         new Date(drawYear, drawMonth, 1 - leadDays),
       );
 
-      const tbody = document.createElement('tbody');
+      const tbodyEl = document.createElement('tbody');
+
       // Create datepicker rows
       for (let dRow = 0; dRow < numRows; dRow++) {
         const tr = document.createElement('tr');
@@ -1818,13 +1719,6 @@ function generateHTML(inst) {
           td.textContent = this.get(inst, 'calculateWeek')(printDate);
           tr.appendChild(td);
         }
-
-        // calender += '<tr>';
-        // let tbody = !showWeek
-        //   ? ''
-        //   : '<td class="ui-datepicker-week-col">' +
-        //     this.get(inst, 'calculateWeek')(printDate) +
-        //     '</td>';
 
         // Create datepicker days
         for (let dow = 0; dow < 7; dow++) {
@@ -1839,91 +1733,100 @@ function generateHTML(inst) {
             (maxDate && printDate > maxDate);
 
           const td = document.createElement('td');
-
-          tbody +=
-            '<td class="' +
-            ((dow + firstDay + 6) % 7 >= 5 ? ' ui-datepicker-week-end' : '') + // highlight weekends
-            (otherMonth ? ' ui-datepicker-other-month' : '') + // highlight days from other months
-            ((printDate.getTime() === selectedDate.getTime() &&
+          if ((dow + firstDay + 6) % 7 >= 5) {
+            td.classList.add('ui-datepicker-week-end');
+          }
+          if (otherMonth) {
+            td.classList.add('ui-datepicker-other-month');
+          }
+          if (
+            (printDate.getTime() === selectedDate.getTime() &&
               drawMonth === inst.selectedMonth &&
               inst._keyEvent) || // user pressed key
             (defaultDate.getTime() === printDate.getTime() &&
               defaultDate.getTime() === selectedDate.getTime())
-              ? // or defaultDate is current printedDate and defaultDate is selectedDate
-                ' ' + this.dayOverClass
-              : '') + // highlight selected day
-            (unselectable
-              ? ' ' + this.unselectableClass + ' ui-state-disabled'
-              : '') + // highlight unselectable days
-            (otherMonth && !showOtherMonths
-              ? ''
-              : ' ' +
-                daySettings[1] + // highlight custom dates
-                (printDate.getTime() === currentDate.getTime()
-                  ? ' ' + this.currentClass
-                  : '') + // highlight selected day
-                (printDate.getTime() === today.getTime()
-                  ? ' ui-datepicker-today'
-                  : '')) +
-            '"' + // highlight today (if different)
-            ((!otherMonth || showOtherMonths) && daySettings[2]
-              ? " title='" + daySettings[2].replace(/'/g, '&#39;') + "'"
-              : '') + // cell title
-            (unselectable
-              ? ''
-              : '" data-handler="selectDay" data-event="click" data-month="' +
-                printDate.getMonth() +
-                '" data-year="' +
-                printDate.getFullYear() +
-                '"') +
-            '>' + // actions
-            (otherMonth && !showOtherMonths
-              ? '&#xa0;' // display for other months
-              : unselectable
-              ? '<span class="ui-state-default">' +
-                printDate.getDate() +
-                '</span>'
-              : '<a class="ui-state-default' +
-                (printDate.getTime() === today.getTime()
-                  ? ' ui-state-highlight'
-                  : '') +
-                (printDate.getTime() === currentDate.getTime()
-                  ? ' ui-state-active'
-                  : '') + // highlight selected day
-                (otherMonth ? ' ui-priority-secondary' : '') + // distinguish dates from other months
-                '" href="#">' +
-                printDate.getDate() +
-                '</a>') +
-            '</td>'; // display selectable date
-
+          ) {
+            td.classList.add(this.dayOverClass);
+          }
+          if (unselectable) {
+            td.classList.add(this.unselectableClass);
+            td.classList.add('ui-state-disabled');
+          }
+          if (!otherMonth || showOtherMonths) {
+            if (daySettings[1]) {
+              td.classList.add(daySettings[1]);
+            }
+            if (printDate.getTime() === currentDate.getTime()) {
+              td.classList.add(this.currentClass);
+            }
+            if (printDate.getTime() === today.getTime()) {
+              td.classList.add('ui-datepicker-today');
+            }
+          }
+          if ((!otherMonth || showOtherMonths) && daySettings[2]) {
+            td.setAttribute('title', daySettings[2].replace(/'/g, '&#39;'));
+          }
+          if (!unselectable) {
+            td.setAttribute('data-handler', 'selectDay');
+            td.setAttribute('data-event', 'click');
+            td.setAttribute('data-month', printDate.getMonth());
+            td.setAttribute('data-year', printDate.getFullYear());
+          }
+          if (otherMonth && !showOtherMonths) {
+            td.innerHTML = '&#xa0;';
+          } else {
+            if (unselectable) {
+              const span = document.createElement('span');
+              span.setAttribute('class', 'ui-state-default');
+              span.textContent = printDate.getDate();
+              td.appendChild(span);
+            } else {
+              // const a = document.createElement('a');
+              const a = document.createElement('button');
+              a.setAttribute('class', 'ui-state-default');
+              if (printDate.getTime() === today.getTime()) {
+                a.classList.add('ui-state-highlight');
+              }
+              if (printDate.getTime() === currentDate.getTime()) {
+                a.classList.add('ui-state-active');
+              }
+              if (otherMonth) {
+                a.classList.add('ui-priority-secondary');
+              }
+              // a.setAttribute('href', '#');
+              a.textContent = printDate.getDate();
+              td.appendChild(a);
+            }
+          }
+          tr.appendChild(td);
           printDate.setDate(printDate.getDate() + 1);
           printDate = this.daylightSavingAdjust(printDate);
         }
-        calender += tbody + '</tr>';
+        tbodyEl.appendChild(tr);
       }
       drawMonth++;
       if (drawMonth > 11) {
         drawMonth = 0;
         drawYear++;
       }
-      calender +=
-        '</tbody></table>' +
-        (isMultiMonth
-          ? '</div>' +
-            (numMonths[0] > 0 && col === numMonths[1] - 1
-              ? '<div class="ui-datepicker-row-break"></div>'
-              : '')
-          : '');
+      tableEl.appendChild(tbodyEl);
+      calenderEl.appendChild(tableEl);
+      groupEl.appendChild(calenderEl);
 
-      group += calender;
+      if (isMultiMonth && numMonths[0] > 0 && col === numMonths[1] - 1) {
+        const div = document.createElement('div');
+        div.setAttribute('class', 'ui-datepicker-row-break');
+        groupEl.appendChild(div);
+      }
     }
-
-    html += group;
+    htmlEl.appendChild(groupEl);
   }
-
-  html += buttonPanel;
+  if (buttonPanelEl) {
+    htmlEl.appendChild(buttonPanelEl);
+  }
   inst.keyEvent = false;
-  return html;
+
+  return htmlEl;
 }
 
 /* Determine the number of months to show. */
@@ -1998,46 +1901,54 @@ function generateMonthYearHeader(
   const changeMonth = this.get(inst, 'changeMonth');
   const changeYear = this.get(inst, 'changeYear');
   const showMonthAfterYear = this.get(inst, 'showMonthAfterYear');
-  let html = '<div class="ui-datepicker-title">';
-  let monthHtml = '';
+  const htmlEl = document.createElement('div');
+  htmlEl.setAttribute('class', 'ui-datepicker-title');
+  let monthEl;
 
   // Month selection
   if (secondary || !changeMonth) {
-    monthHtml +=
-      '<span class="ui-datepicker-month">' + monthNames[drawMonth] + '</span>';
+    monthEl = document.createElement('span');
+    monthEl.setAttribute('class', 'ui-datepicker-month');
+    monthEl.textContent = monthNames[drawMonth];
   } else {
     let inMinYear = minDate && minDate.getFullYear() === drawYear;
     let inMaxYear = maxDate && maxDate.getFullYear() === drawYear;
-    monthHtml +=
-      '<select class="ui-datepicker-month" data-handler="selectMonth" data-event="change">';
+    monthEl = document.createElement('select');
+    monthEl.setAttribute('class', 'ui-datepicker-month');
+    monthEl.setAttribute('data-handler', 'selectMonth');
+    monthEl.setAttribute('data-event', 'change');
+
     for (let month = 0; month < 12; month++) {
       if (
         (!inMinYear || month >= minDate.getMonth()) &&
         (!inMaxYear || month <= maxDate.getMonth())
       ) {
-        monthHtml +=
-          '<option value="' +
-          month +
-          '"' +
-          (month === drawMonth ? ' selected="selected"' : '') +
-          '>' +
-          monthNamesShort[month] +
-          '</option>';
+        const option = document.createElement('option');
+        option.setAttribute('value', month);
+        if (month === drawMonth) {
+          option.setAttribute('selected', 'selected');
+        }
+        option.textContent = monthNamesShort[month];
+        monthEl.appendChild(option);
       }
     }
-    monthHtml += '</select>';
   }
 
   if (!showMonthAfterYear) {
-    html +=
-      monthHtml + (secondary || !(changeMonth && changeYear) ? '&#xa0;' : '');
+    htmlEl.appendChild(monthEl);
+    if (secondary || !(changeMonth && changeYear)) {
+      htmlEl.appendChild(document.createTextNode('\u00a0'));
+    }
   }
 
   // Year selection
   if (!inst.yearshtml) {
     inst.yearshtml = '';
     if (secondary || !changeYear) {
-      html += '<span class="ui-datepicker-year">' + drawYear + '</span>';
+      const span = document.createElement('span');
+      span.setAttribute('class', 'ui-datepicker-year');
+      span.textContent = drawYear;
+      htmlEl.appendChild(span);
     } else {
       // Determine range of years to display
       const years = this.get(inst, 'yearRange').split(':');
@@ -2057,32 +1968,33 @@ function generateMonthYearHeader(
       let endYear = Math.max(year, determineYear(years[1] || ''));
       year = minDate ? Math.max(year, minDate.getFullYear()) : year;
       endYear = maxDate ? Math.min(endYear, maxDate.getFullYear()) : endYear;
-      inst.yearshtml +=
-        '<select class="ui-datepicker-year" data-handler="selectYear" data-event="change">';
+      const select = document.createElement('select');
+      select.setAttribute('class', 'ui-datepicker-year');
+      select.setAttribute('data-handler', 'selectYear');
+      select.setAttribute('data-event', 'change');
       for (; year <= endYear; year++) {
-        inst.yearshtml +=
-          '<option value="' +
-          year +
-          '"' +
-          (year === drawYear ? ' selected="selected"' : '') +
-          '>' +
-          year +
-          '</option>';
+        const option = document.createElement('option');
+        option.setAttribute('value', year);
+        if (year === drawYear) {
+          option.setAttribute('selected', 'selected');
+        }
+        option.textContent = year;
+        select.appendChild(option);
       }
-      inst.yearshtml += '</select>';
-
-      html += inst.yearshtml;
-      inst.yearshtml = null;
+      htmlEl.appendChild(select);
     }
   }
 
-  html += this.get(inst, 'yearSuffix');
-  if (showMonthAfterYear) {
-    html +=
-      (secondary || !(changeMonth && changeYear) ? '&#xa0' : '') + monthHtml;
+  if (this.get(inst, 'yearSuffix')) {
+    htmlEl.appendChild(document.createTextNode(this.get(inst, 'yearSuffix')));
   }
-  html += '</div>';
-  return html;
+  if (showMonthAfterYear) {
+    if (secondary || !(changeMonth && changeYear)) {
+      htmlEl.appendChild(document.createTextNode('\u00a0'));
+    }
+    htmlEl.appendChild(monthEl);
+  }
+  return htmlEl;
 }
 
 /* Find the day of the week of the first of a month. */
@@ -2159,7 +2071,7 @@ function getInst(target) {
   try {
     return target.datepicker;
   } catch (err) {
-    throw 'Missing instace data for this datepicker';
+    throw new Error('Missing instace data for this datepicker');
   }
 }
 
@@ -2217,8 +2129,8 @@ function selectDay(id, month, year, td) {
   }
 
   const inst = this.getInst(target);
-  inst.selectedDay = inst.currentDay = td.querySelector('a').innerHTML;
-  console.log('Selected Day: ' + inst.currentDay);
+  // inst.selectedDay = inst.currentDay = td.querySelector('a').innerHTML;
+  inst.selectedDay = inst.currentDay = td.querySelector('button').textContent;
   inst.selectedMonth = inst.currentMonth = month;
   inst.selectedYear = inst.currentYear = year;
   this.selectDate(
@@ -2511,6 +2423,7 @@ const datepicker = function(selectorOrInput, options) {
       : selectorOrInput;
 
   const dp = window.__quno__.datepicker;
+
   // Initialise the date picker
   if (!dp.initialized) {
     document.addEventListener('mousedown', dp.checkExternalClick);
@@ -2871,12 +2784,14 @@ function moveOneMonth(currentDate, dir) {
 
     const newCells = document.querySelectorAll(ENABLED_SELECTOR);
     let newTd = newCells[currentIdx];
-    let newAnchor = newTd && newTd.querySelector('a');
+    // let newAnchor = newTd && newTd.querySelector('a');
+    let newAnchor = newTd && newTd.querySelector('button');
 
     while (!newAnchor) {
       currentIdx--;
       newTd = newCells[currentIdx];
-      newAnchor = newTd && newTd.querySelector('a');
+      // newAnchor = newTd && newTd.querySelector('a');
+      newAnchor = newTd && newTd.querySelector('button');
     }
 
     setHighlightState(newAnchor, document.querySelector('#ui-datepicker-div'));
