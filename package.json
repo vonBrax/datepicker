@@ -5,7 +5,7 @@
   "main": "datepicker.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "parcel -p 8088 watch index.html"
+    "dev": "parcel -p 1234 watch index.html"
   },
   "keywords": [],
   "author": "",
