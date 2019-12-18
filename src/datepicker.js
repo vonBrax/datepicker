@@ -198,6 +198,12 @@ function DatePicker() {
     'class',
     'ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all',
   );
+
+  // Init a11y
+  div.setAttribute('role', 'application');
+  div.setAttribute('aria-label', 'Calendar view date-picker');
+  // End a11y
+
   this.dpDiv = datepicker_bindHover(div);
 }
 
@@ -317,13 +323,21 @@ function attachments(input, inst) {
     img.setAttribute('title', buttonText);
     if (this.get(inst, 'buttonImageOnly')) {
       img.setAttribute('class', this.triggerClass);
+
+      // Init a11y
       img.setAttribute('aria-describedby', 'datepickerLabel');
+      // End a11y
+
       inst.trigger = img;
     } else {
       const btn = document.createElement('btn');
       btn.setAttribute('type', 'button');
       btn.setAttribute('class', this.triggerClass);
+
+      // Init a11y
       btn.setAttribute('aria-describedby', 'datepickerLabel');
+      // End a11y
+
       if (buttonImage) {
         btn.appendChild(img);
       } else {
@@ -1512,17 +1526,24 @@ function generateHTML(inst) {
   inst.drawMonth = drawMonth;
   inst.drawYear = drawYear;
 
-  let prevText = this.get(inst, 'prevText');
+  const firstToCap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const formatConfig = this.getFormatConfig(inst);
+
+  let prevText = `${this.get(inst, 'prevText')}, ${firstToCap(
+    formatConfig.monthNames[Math.abs(drawMonth - stepMonths) % 12],
+  )} ${new Date(drawYear, drawMonth - stepMonths, 1).getFullYear()}`;
+
   prevText = !navigationAsDateFormat
     ? prevText
     : this.formatDate(
-        prevText,
+        // prevText
+        this.get(inst, 'dateFormat'),
         this.daylightSavingAdjust(
           new Date(drawYear, drawMonth - stepMonths, 1),
         ),
         this.getFormatConfig(inst),
       );
-
+  console.log(prevText);
   let prevEl;
   const canAdjustPrev = this.canAdjustMonth(inst, -1, drawYear, drawMonth);
   if (canAdjustPrev || !hideIfNoPrevNext) {
@@ -1548,7 +1569,8 @@ function generateHTML(inst) {
   nextText = !navigationAsDateFormat
     ? nextText
     : this.formatDate(
-        nextText,
+        // nextText,
+        this.get(inst, 'dateFormat'),
         this.daylightSavingAdjust(
           new Date(drawYear, drawMonth + stepMonths, 1),
         ),

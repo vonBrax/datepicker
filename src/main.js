@@ -11,6 +11,8 @@ const options = {
     close: true,
   },
   closeText: 'Close',
+  prevText: 'Previous Month',
+  nextText: 'Next Month',
   // dayNamesShort: [
   //   'Sunday',
   //   'Monday',
