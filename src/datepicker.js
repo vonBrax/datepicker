@@ -909,6 +909,130 @@ function hideDatepicker(input) {
   }
 }
 
+/* Handle keystrokes. */
+function doKeyDown(event) {
+  const dp = window.__quno__.datepicker;
+  const inst = dp.getInst(event.target);
+  let handled = true;
+  const isRTL = inst.dpDiv.classList.contains('ui-datepicker-rtl');
+  inst.keyEvent = true;
+
+  console.log(event.keyCode);
+
+  if (dp.datepickerShowing) {
+    switch (event.keyCode) {
+      // TAB
+      case 9:
+        dp.hideDatepicker();
+        handled = false;
+        break;
+
+      // ENTER
+      case 13: {
+        const sel = inst.dpDiv.querySelector(
+          `td.${dp.dayOverClass}:not(.${dp.currentClass})`,
+        );
+        if (sel) {
+          dp.selectDay(
+            event.target,
+            inst.selectedMonth,
+            inst.selectedYear,
+            sel,
+          );
+        }
+
+        const onSelect = dp.get(inst, 'onSelect');
+        if (onSelect) {
+          const dateStr = dp.formatDate(inst);
+
+          // Trigger custom callback
+          onSelect.apply(inst.input || null, [dateStr, inst]);
+        } else {
+          dp.hideDatepicker();
+        }
+
+        // dont submit the form
+        return false;
+      }
+
+      // ESC
+      case 27:
+        dp.hideDatepicker();
+        break;
+
+      // PAGE UP
+      case 33:
+        // Previous month/year on CTRL + PAGE UP
+        dp.adjustDate(
+          event.target,
+          event.ctrlKey
+            ? -dp.get(inst, 'stepBigMonths')
+            : -dp.get(inst, 'stepMonths'),
+          'M',
+        );
+        break;
+
+      // PAGE DOWN
+      case 34:
+        // Next month/year on CTRL + PAGE DOWN
+        dp.adjustDate(
+          event.target,
+          event.ctrlKey
+            ? +dp.get(inst, 'stepBigMonths')
+            : +dp.get(inst, 'stepMonths'),
+          'M',
+        );
+        break;
+
+      // END
+      case 35:
+        if (event.ctrlKey || event.metaKey) {
+          dp.clearDate(event.target);
+        }
+        handled = event.ctrlKey || event.metaKey;
+        break;
+
+      // HOME
+      case 36:
+        if (event.ctrlKey || event.metaKey) {
+          dp.gotoToday(event.target);
+        }
+        handled = event.ctrlKey || event.metaKey;
+        break;
+
+      // ARROW LEFT
+      case 37:
+        if (event.ctrlKey || event.metaKey) {
+          dp.adjustDate(event.target, isRTL ? +1 : -1, 'D');
+        }
+
+        handled = event.ctrlKey || event.metaKey;
+
+        // -1 day on ctrl or command + left
+        if (event.altKey) {
+          dp.adjustDate(
+            event.target,
+            event.ctrlKey
+              ? -dp.get(inst, 'stepBigMonths')
+              : -dp.get(inst, 'stepMonths'),
+            'M',
+          );
+        }
+    }
+  }
+
+  // if (handled) {
+  //   event.preventDefault();
+  //   event.stopPropagation();
+  // }
+}
+
+/* Erase the input field and hide the date picker. */
+function clearDate(id) {
+  const target = typeof id === 'string' ? document.querySelector(id) : id;
+  this.selectDate(target, '');
+}
+
 function autoSize(inst) {
   // Ensure double digits
   const date = new Date(2009, 12 - 1, 20);
@@ -1887,19 +2011,6 @@ function generateHTML(inst) {
           const day = (dow + firstDay) % 7;
           td.setAttribute('data-day', printDate.getDate());
           td.setAttribute('data-week-day', dayNames[day]);
-          const dateLabels = {
-            d: td.dataset.day,
-            m: monthNames[parseInt(td.dataset.month)],
-            y: td.dataset.year,
-          };
-          const format = [
-            ...this.get(inst, 'dateFormat')
-              .split('/')
-              .map(c => {
-                dateLabels[c.charAt(0)];
-              }),
-            td.dataset.weekDay,
-          ].join(' ');
 
           const label = `${td.dataset.day} ${
             monthNames[parseInt(td.dataset.month)]
@@ -2217,7 +2328,7 @@ function tidyDialog(inst) {
 
 /* Action for current link. */
 function gotoToday(id) {
-  const target = document.querySelector(id);
+  const target = typeof id === 'string' ? document.querySelector(id) : id;
   const inst = this.getInst(target);
 
   if (this.get(inst, 'gotoCurrent') && inst.currentDay) {
@@ -2237,7 +2348,7 @@ function gotoToday(id) {
 
 /* Action for selecting a day. */
 function selectDay(id, month, year, td) {
-  const target = document.querySelector(id);
+  const target = typeof id === 'string' ? document.querySelector(id) : id;
 
   if (
     td.classList.contains(this.unselectableClass) ||
@@ -2525,30 +2636,6 @@ function doCalendarKeyDown(evt) {
   }
 }
 
-/* Handle keystrokes. */
-function doKeyDown(event) {
-  const dp = window.__quno__.datepicker;
-  const inst = dp.getInst(event.target);
-  let handled = true;
-  const isRTL = inst.dpDiv.classList.contains('ui-datepicker-rtl');
-  inst.keyEvent = true;
-
-  if (dp.datepickerShowing) {
-    switch (event.keyCode) {
-      // TAB
-      case 9:
-        dp.hideDatepicker();
-        handled = false;
-        break;
-    }
-  }
-
-  if (handled) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-}
-
 // ===================================================================
 //
 //  Map function to prototype (private functions can be left out)
@@ -2571,6 +2658,8 @@ proto.setDateFromField = setDateFromField;
 proto.parseDate = parseDate;
 proto.findPos = findPos;
 proto.checkOffset = checkOffset;
+// KeyDown (not in prototype)
+proto.clearDate = clearDate;
 proto.autoSize = autoSize;
 proto._formatDate = _formatDate;
 proto.daylightSavingAdjust = daylightSavingAdjust;
