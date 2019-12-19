@@ -261,6 +261,9 @@ function connectDatepicker(target, inst) {
 
   this.attachments(target, inst);
   target.classList.add(this.markerClassName);
+  /**
+   * @todo: ADD KEY EVENT HANDLERS
+   */
   target.addEventListener('keydown', this.doKeyDown);
   target.addEventListener('keypress', this.doKeyPress);
   target.addEventListener('keyup', this.doKeyUp);
@@ -1528,12 +1531,18 @@ function generateHTML(inst) {
   inst.drawMonth = drawMonth;
   inst.drawYear = drawYear;
 
-  const firstToCap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  // Init a11y changes
   const formatConfig = this.getFormatConfig(inst);
+  const firstToCap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
+  const prevDate = this.daylightSavingAdjust(
+    new Date(drawYear, drawMonth - stepMonths, 1),
+  );
   let prevText = `${this.get(inst, 'prevText')}, ${firstToCap(
-    formatConfig.monthNames[Math.abs(drawMonth - stepMonths) % 12],
-  )} ${new Date(drawYear, drawMonth - stepMonths, 1).getFullYear()}`;
+    formatConfig.monthNames[prevDate.getMonth()],
+  )} ${prevDate.getFullYear()}`;
+  // let prevText = this.get(inst, 'prevText'):
+  // End a11y changes
 
   prevText = !navigationAsDateFormat
     ? prevText
@@ -1545,7 +1554,7 @@ function generateHTML(inst) {
         ),
         this.getFormatConfig(inst),
       );
-  console.log(prevText);
+
   let prevEl;
   const canAdjustPrev = this.canAdjustMonth(inst, -1, drawYear, drawMonth);
   if (canAdjustPrev || !hideIfNoPrevNext) {
@@ -1567,7 +1576,16 @@ function generateHTML(inst) {
     prevEl.classList.add('ui-state-disabled');
   }
 
-  let nextText = this.get(inst, 'nextText');
+  // Init a11y changes
+  const nextDate = this.daylightSavingAdjust(
+    new Date(drawYear, drawMonth + stepMonths, 1),
+  );
+  let nextText = `${this.get(inst, 'nextText')}, ${firstToCap(
+    formatConfig.monthNames[nextDate.getMonth()],
+  )} ${nextDate.getFullYear()}`;
+  // let nextText = this.get(inst, 'nextText');
+  // End a11y changes
+
   nextText = !navigationAsDateFormat
     ? nextText
     : this.formatDate(
@@ -1864,6 +1882,32 @@ function generateHTML(inst) {
               td.appendChild(a);
             }
           }
+
+          // Init a11y changes
+          const day = (dow + firstDay) % 7;
+          td.setAttribute('data-day', printDate.getDate());
+          td.setAttribute('data-week-day', dayNames[day]);
+          const dateLabels = {
+            d: td.dataset.day,
+            m: monthNames[parseInt(td.dataset.month)],
+            y: td.dataset.year,
+          };
+          const format = [
+            ...this.get(inst, 'dateFormat')
+              .split('/')
+              .map(c => {
+                dateLabels[c.charAt(0)];
+              }),
+            td.dataset.weekDay,
+          ].join(' ');
+
+          const label = `${td.dataset.day} ${
+            monthNames[parseInt(td.dataset.month)]
+          } ${td.dataset.year} ${td.dataset.weekDay}`;
+          const child = td.firstElementChild;
+          child && child.setAttribute('aria-label', label);
+          // End a11y changes
+
           tr.appendChild(td);
           printDate.setDate(printDate.getDate() + 1);
           printDate = this.daylightSavingAdjust(printDate);
@@ -2076,13 +2120,21 @@ function attachHandlers(inst) {
   const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
   const dp = window.__quno__.datepicker;
 
+  /**
+   * @todo:
+   * DELEGATE CALENDAR EVENTS (ALL)
+   */
   Array.from(inst.dpDiv.querySelectorAll('[data-handler]'), el => {
     const handler = {
       prev() {
         dp.adjustDate(id, -stepMonths, 'M');
+        const prev = inst.dpDiv.querySelector('.ui-datepicker-prev');
+        prev && prev.focus();
       },
       next() {
         dp.adjustDate(id, +stepMonths, 'M');
+        const next = inst.dpDiv.querySelector('.ui-datepicker-next');
+        next && next.focus();
       },
       hide() {
         dp.hideDatepicker();
@@ -2295,6 +2347,15 @@ function shouldFocusInput(inst) {
 function datepicker_bindHover(dpDiv) {
   const selector =
     'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td a';
+  /**
+   * @todo: Delegate all the events inside calendar
+   * - Click
+   * - Mouseover
+   * - Mouseout
+   * - Keydown
+   * - Keypress
+   * - Keyup
+   */
   dpDiv.addEventListener('mouseout', evt => {
     if (evt.currentTarget.matches(selector)) {
       console.log(
@@ -2572,6 +2633,11 @@ const datepicker = function(selectorOrInput, options) {
 
   const dp = window.__quno__.datepicker;
 
+  /**
+   * @todo:
+   * Only add document mousedown listener when
+   * calendar inst is open (dynamic binding)
+   */
   // Initialise the date picker
   if (!dp.initialized) {
     document.addEventListener('mousedown', dp.checkExternalClick);
@@ -3354,7 +3420,7 @@ function setHighlightState(newHighlight, container) {
   const prevHighlight = getCurrentDate(container);
 
   // Remove the highlight state from previously
-  // highlighted date and add it ot our newly active date
+  // highlighted date and add it to our newly active date
   prevHighlight.classList.remove('ui-state-highlight');
   newHighlight.classList.add('ui-state-highlight');
 }
