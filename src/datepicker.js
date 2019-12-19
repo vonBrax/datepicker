@@ -509,6 +509,8 @@ function showDatepicker(input) {
     today.focus();
   }
 
+  inst.dpDiv.addEventListener('keydown', doCalendarKeyDown);
+
   /**
    *  =======================
    *  End a11y changes
@@ -2403,7 +2405,88 @@ function checkExternalClick(event) {
   }
 }
 
-// Return $.datepicker
+/**
+ * @todo:
+ * Move key listeners up
+ * after changes are merge here
+ */
+/**
+ * @todo:
+ * add Missing functions:
+ * - dialogDatepicker
+ * - destroyDatepicker
+ * - enableDatepicker
+ * - refreshDatepicker
+ * - setDateDatepicker
+ * - getDateDatepicker
+ * - ?
+ */
+
+/* Handle keystrokes inside the calendar */
+function doCalendarKeyDown(evt) {
+  const dp = window.__quno__.datepicker;
+  let handled = true;
+  const dpDiv = evt.currentTarget;
+
+  switch (evt.keyCode) {
+    // ESC
+    case 27:
+      evt.stopPropagation();
+      dp.hideDatepicker();
+      handled = false;
+      break;
+    // TAB
+    case 9: {
+      const tabNodes = Array.from(
+        dpDiv.querySelectorAll(
+          '.ui-datepicker-prev,' +
+            '.ui-datepicker-next,' +
+            '.ui-state-highlight,' +
+            '.ui-datepicker-current,' +
+            '.ui-datepicker-close',
+        ),
+      );
+      const direction = evt.shiftKey ? -1 : 1;
+      const index = tabNodes.indexOf(event.target);
+      const nextIndex = index + direction;
+      if (nextIndex >= tabNodes.length) {
+        tabNodes[0].focus();
+      } else if (nextIndex < 0) {
+        tabNodes[tabNodes.length - 1].focus();
+      } else {
+        tabNodes[nextIndex].focus();
+      }
+    }
+  }
+
+  if (handled) {
+    evt.preventDefault();
+  }
+}
+
+/* Handle keystrokes. */
+function doKeyDown(event) {
+  const dp = window.__quno__.datepicker;
+  const inst = dp.getInst(event.target);
+  let handled = true;
+  const isRTL = inst.dpDiv.classList.contains('ui-datepicker-rtl');
+  inst.keyEvent = true;
+
+  if (dp.datepickerShowing) {
+    switch (event.keyCode) {
+      // TAB
+      case 9:
+        dp.hideDatepicker();
+        handled = false;
+        break;
+    }
+  }
+
+  if (handled) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
 
 // ===================================================================
 //
@@ -2463,6 +2546,7 @@ proto.updateAlternate = updateAlternate;
 proto.selectMonthYear = selectMonthYear;
 proto.shouldFocusInput = shouldFocusInput;
 proto.checkExternalClick = checkExternalClick;
+proto.doKeyDown = doKeyDown;
 
 // TBD
 proto.widgetDatePicker = widgetDatePicker;
