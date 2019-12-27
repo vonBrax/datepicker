@@ -9,6 +9,9 @@
       // { "language": "svelte", "autoFix": true }
   ],
   "eslint.enable": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
 
   // "scss.validate": false,
 
