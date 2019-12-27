@@ -1,9 +1,10 @@
 import './datepicker.css';
 
 // ===================================================================
-// Source code adapted (vanilla) from jQuery UI Datepicker:
-// https://github.com/jquery/jquery-ui/blob/master/ui/widgets/datepicker.js
-// Dependencies: jQuery, jQuery UI
+// Source code adapted from jQuery UI Datepicker:
+//   - https://github.com/jquery/jquery-ui/blob/master/ui/widgets/datepicker.js
+// and Code Library of Accessibility Examples (Deque University):
+//   - https://dequeuniversity.com/library/aria/date-pickers/sf-date-picker
 // ===================================================================
 
 let datepicker_instActive;
@@ -98,6 +99,10 @@ function DatePicker() {
     showMonthAfterYear: false,
     // Additional text to append to the year in the month headers
     yearSuffix: '',
+    // Invisible label for month selector
+    selectMonthLabel: 'Select month',
+    // Invisible label for year selector
+    selectYearLabel: 'Select Year',
   };
 
   this.defaults = {
@@ -228,6 +233,7 @@ function attachDatepicker(target, settings) {
   } else if (inline) {
     this.inlineDatepicker(target, inst);
   }
+  return inst;
 }
 
 /* Create a new instance object. */
@@ -468,8 +474,8 @@ function showDatepicker(input) {
   inst.dpDiv.style.top = offset.top + 'px';
 
   if (!inst.inline) {
-    const showAnim = dp.get(inst, 'showAnim');
-    const duration = dp.get(inst, 'duration');
+    // const showAnim = dp.get(inst, 'showAnim');
+    // const duration = dp.get(inst, 'duration');
     inst.dpDiv.style.zIndex = datepicker_getZindex(input) + 1;
     dp.datepickerShowing = true;
 
@@ -480,8 +486,8 @@ function showDatepicker(input) {
 
     if (dp.shouldFocusInput(inst)) {
       // inst.input.trigger('focus');
-      // inst.input.focus()
-      inst.input.dispatchEvent(new InputEvent('focus'));
+      inst.input.focus();
+      // inst.input.dispatchEvent(new InputEvent('focus'));
     }
 
     dp.curInst = inst;
@@ -869,46 +875,58 @@ function hideDatepicker(input) {
     return;
   }
 
-  if (this.datepickerShowing) {
-    const showAnim = this.get(inst, 'showAnim');
-    const duration = this.get(inst, 'duration');
-    const postProcess = () => window.__quno__.datepicker.tidyDialog(inst);
-
-    // inst.dpDiv[
-    //   showAnim === 'slideDown'
-    //     ? 'slideUp'
-    //     : showAnim === 'fadeIn'
-    //     ? 'fadeOut'
-    //     : 'hide'
-    // ](showAnim ? duration : null, postProcess);
-    inst.dpDiv.style.display = 'none';
-
-    if (!showAnim) {
-      postProcess();
-    }
-
-    this.datepickerShowing = false;
-
-    const onClose = this.get(inst, 'onClose');
-    if (onClose) {
-      onClose.apply(inst.input || null, [
-        inst.input ? inst.input.value : '',
-        inst,
-      ]);
-    }
-
-    this.lastInput = null;
-    if (this.inDialog) {
-      this.dialogInput.style.position = 'absolute';
-      this.dialogInput.style.left = '0';
-      this.dialogInput.style.top = '-100px';
-      // if ($.blockUI) {
-      //   $.unblockUI();
-      //   $('body').append(this.dpDiv);
-      // }
-    }
-    this.inDialog = false;
+  if (!this.datepickerShowing) {
+    return;
   }
+
+  const showAnim = this.get(inst, 'showAnim');
+  // const duration = this.get(inst, 'duration');
+  const postProcess = () => window.__quno__.datepicker.tidyDialog(inst);
+
+  // inst.dpDiv[
+  //   showAnim === 'slideDown'
+  //     ? 'slideUp'
+  //     : showAnim === 'fadeIn'
+  //     ? 'fadeOut'
+  //     : 'hide'
+  // ](showAnim ? duration : null, postProcess);
+  inst.dpDiv.style.display = 'none';
+
+  if (!showAnim) {
+    postProcess();
+  }
+
+  this.datepickerShowing = false;
+
+  const onClose = this.get(inst, 'onClose');
+  if (onClose) {
+    onClose.apply(inst.input || null, [
+      inst.input ? inst.input.value : '',
+      inst,
+    ]);
+  }
+
+  this.lastInput = null;
+  if (this.inDialog) {
+    this.dialogInput.style.position = 'absolute';
+    this.dialogInput.style.left = '0';
+    this.dialogInput.style.top = '-100px';
+    // if ($.blockUI) {
+    //   $.unblockUI();
+    //   $('body').append(this.dpDiv);
+    // }
+  }
+  this.inDialog = false;
+
+  // Init a11y changes
+  const main = document.querySelector('main');
+  // const cont = document.querySelector('#dp-container');
+  const skipNav = document.querySelector('#skipnav');
+  main && main.removeAttribute('aria-hidden');
+  // cont && cont.removeAttribute('aria-hidden');
+  skipNav && skipNav.removeAttribute('aria-hidden');
+  inst.dpDiv.removeEventListener('keydown', doCalendarKeyDown);
+  // End a11y changes
 }
 
 /* Handle keystrokes. */
@@ -1427,8 +1445,60 @@ function getFormatConfig(inst) {
   };
 }
 
+/* Enable the date picker to a jQuery selection.
+ * @param  target	element - the target input field or division or span
+ */
+function enableDatepicker(target) {
+  target = typeof target === 'string' ? document.querySelector(target) : target;
+  const inst = this.getInst(target);
+
+  if (!target.classList.contains(this.markerClassName)) {
+    return;
+  }
+
+  const nodeName = target.nodeName.toLowerCase();
+  if (nodeName === 'input') {
+    target.disabled = false;
+    Array.from(inst.trigger, el => {
+      if (el.matches('button')) {
+        this.disabled = false;
+      } else if (el.matches('img')) {
+        el.style.opacity = '1.0';
+        el.style.cursor = '';
+      }
+      return el;
+    });
+  } else if (nodeName === 'div' || nodeName === 'span') {
+    const children = Array.from(target.children).filter(el =>
+      el.classList.contains(this.inlineClass),
+    );
+    children.forEach(child => {
+      Array.from(child.children, el => {
+        el.classList.remove('ui-state-disabled');
+        return el;
+      });
+      Array.from(
+        child.querySelectorAll(
+          'select.ui-datepicker-month, select.ui-datepicker-year',
+        ),
+        el => {
+          el.disabled = false;
+          return el;
+        },
+      );
+    });
+  }
+
+  // delete entry
+  this.disabledInputs = this.disabledInputs.filter(value => value !== target);
+}
+
+/* Disable the date picker to a jQuery selection.
+ * @param  target	element - the target input field or division or span
+ */
 function disableDatepicker(target) {
-  const inst = target.datepicker;
+  target = typeof target === 'string' ? document.querySelector(target) : target;
+  const inst = this.getInst(target);
 
   if (!target.classList.contains(this.markerClassName)) {
     return;
@@ -1461,7 +1531,7 @@ function disableDatepicker(target) {
           'select.ui-datepicker-month, select.ui-datepicker-year',
         ),
         el => {
-          el.disabled = 'true';
+          el.disabled = true;
           return el;
         },
       );
@@ -1472,9 +1542,7 @@ function disableDatepicker(target) {
    * @todo: Review (replaced $.map with Array.filter)
    */
   // delete entry
-  this.disabledInputs = this.disabledInputs.filter(value => {
-    return value === target ? null : value;
-  });
+  this.disabledInputs = this.disabledInputs.filter(value => value !== target);
 
   this.disabledInputs[this.disabledInputs.length] = target;
 }
@@ -2134,27 +2202,32 @@ function generateHTML(inst) {
           } else {
             if (unselectable) {
               const span = document.createElement('span');
-              span.setAttribute('class', 'ui-state-default');
+              span.setAttribute('class', 'ui-datepicker-day ui-state-default');
               span.textContent = printDate.getDate();
               td.appendChild(span);
             } else {
               // const a = document.createElement('a');
-              const a = document.createElement('button');
-              a.setAttribute('class', 'ui-state-default');
+              const btn = document.createElement('button');
+              btn.setAttribute('aria-current', 'false');
+              btn.setAttribute('class', 'ui-datepicker-day ui-state-default');
               if (printDate.getTime() === today.getTime()) {
                 // Begin a11y changes
-                // a.classList.add('ui-state-highlight');
+                // btn.classList.add('ui-state-highlight');
+                btn.setAttribute('aria-current', 'true');
                 // End a11y changes
               }
               if (printDate.getTime() === currentDate.getTime()) {
-                a.classList.add('ui-state-active');
+                btn.classList.add('ui-state-active');
+                // Init a11y changes
+                btn.setAttribute('aria-pressed', 'true');
+                // End a11y changes
               }
               if (otherMonth) {
-                a.classList.add('ui-priority-secondary');
+                btn.classList.add('ui-priority-secondary');
               }
               // a.setAttribute('href', '#');
-              a.textContent = printDate.getDate();
-              td.appendChild(a);
+              btn.textContent = printDate.getDate();
+              td.appendChild(btn);
             }
           }
 
@@ -2273,6 +2346,10 @@ function generateMonthYearHeader(
   const changeMonth = this.get(inst, 'changeMonth');
   const changeYear = this.get(inst, 'changeYear');
   const showMonthAfterYear = this.get(inst, 'showMonthAfterYear');
+  // Init a11y changes
+  const selectMonthLabel = this.get(inst, 'selectMonthLabel');
+  const selectYearLabel = this.get(inst, 'selectYearLabel');
+  // End a11y changes
   const htmlEl = document.createElement('div');
   htmlEl.setAttribute('class', 'ui-datepicker-title');
   let monthEl;
@@ -2289,6 +2366,8 @@ function generateMonthYearHeader(
     monthEl.setAttribute('class', 'ui-datepicker-month');
     monthEl.setAttribute('data-handler', 'selectMonth');
     monthEl.setAttribute('data-event', 'change');
+    // Init a11y changes
+    monthEl.setAttribute('aria-label', selectMonthLabel);
 
     for (let month = 0; month < 12; month++) {
       if (
@@ -2344,6 +2423,9 @@ function generateMonthYearHeader(
       select.setAttribute('class', 'ui-datepicker-year');
       select.setAttribute('data-handler', 'selectYear');
       select.setAttribute('data-event', 'change');
+      // Init a11y changes
+      select.setAttribute('aria-label', selectYearLabel);
+      // End a11y changes
       for (; year <= endYear; year++) {
         const option = document.createElement('option');
         option.setAttribute('value', year);
@@ -2510,7 +2592,13 @@ function selectDay(id, month, year, td) {
 
   const inst = this.getInst(target);
   // inst.selectedDay = inst.currentDay = td.querySelector('a').innerHTML;
-  inst.selectedDay = inst.currentDay = td.querySelector('button').textContent;
+  const btn = td.querySelector('button');
+  // Init a11y changes
+  const prevPressed = inst.dpDiv.querySelector('[aria-pressed="true"]');
+  prevPressed && prevPressed.removeAttribute('aria-pressed');
+  btn.setAttribute('aria-pressed', 'true');
+  // End a11y changes
+  inst.selectedDay = inst.currentDay = btn.textContent;
   inst.selectedMonth = inst.currentMonth = month;
   inst.selectedYear = inst.currentYear = year;
   this.selectDate(
@@ -2615,7 +2703,7 @@ function shouldFocusInput(inst) {
  */
 function datepicker_bindHover(dpDiv) {
   const selector =
-    'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td a';
+    'button, .ui-datepicker-prev, .ui-datepicker-next, .ui-datepicker-calendar td button';
   /**
    * @todo: Delegate all the events inside calendar
    * - Click
@@ -2740,17 +2828,6 @@ function checkExternalClick(event) {
  * Move key listeners up
  * after changes are merge here
  */
-/**
- * @todo:
- * add Missing functions:
- * - dialogDatepicker
- * - destroyDatepicker
- * - enableDatepicker
- * - refreshDatepicker
- * - setDateDatepicker
- * - getDateDatepicker
- * - ?
- */
 
 /* Handle keystrokes inside the calendar */
 function doCalendarKeyDown(evt) {
@@ -2776,7 +2853,8 @@ function doCalendarKeyDown(evt) {
             '.ui-datepicker-next,' +
             '.ui-state-highlight,' +
             '.ui-datepicker-current,' +
-            '.ui-datepicker-close',
+            '.ui-datepicker-close,' +
+            '.ui-datepicker-today > .ui-state-default',
         ),
       );
       const direction = evt.shiftKey ? -1 : 1;
@@ -2978,6 +3056,106 @@ function doCalendarKeyDown(evt) {
     case 32: // SPACE
       handled = false;
       break;
+
+    // PAGE UP
+    case 33: {
+      // Highlight and focus same day from month before
+      let target = evt.target;
+      if (!target.classList.contains('ui-state-day')) {
+        target =
+          inst.dpDiv.querySelector('.ui-state-highlight') ||
+          inst.dpDiv.querySelector(
+            '.ui-datepicker-today > .ui-state-default',
+          ) ||
+          inst.dpDiv.querySelector('.ui-state-default');
+      }
+      const td = target.closest('td');
+      const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
+      const stepMonths = dp.get(inst, 'stepMonths');
+      const onChange = inst.settings.onChangeMonthYear;
+      inst.settings.onChangeMonthYear = () => {
+        // Apparently the callback is running before
+        // the new calendar is added to the dom
+        setTimeout(() => {
+          let targetTd = inst.dpDiv.querySelector(
+            `[data-day="${td.dataset.day}"]:not(.ui-datepicker-other-month)`,
+          );
+          if (!targetTd) {
+            const trs = inst.dpDiv.querySelector('tbody').children;
+            const lastTr = last(trs);
+            targetTd = last(
+              lastTr.querySelectorAll('td:not(.ui-datepicker-other-month)'),
+            );
+          }
+          const targetBtn = targetTd.querySelector('.ui-state-default');
+          targetBtn && targetBtn.classList.add('ui-state-highlight');
+          targetBtn && targetBtn.focus();
+          inst.settings.onChangeMonthYear = onChange;
+        }, 50);
+      };
+      dp.adjustDate(id, -stepMonths, 'M');
+      break;
+    }
+
+    // PAGE DOWN
+    case 34: {
+      // Highlight and focus same day from month before
+      let target = evt.target;
+      if (!target.classList.contains('ui-state-day')) {
+        target =
+          inst.dpDiv.querySelector('.ui-state-highlight') ||
+          inst.dpDiv.querySelector(
+            '.ui-datepicker-today > .ui-state-default',
+          ) ||
+          inst.dpDiv.querySelector('.ui-state-default');
+      }
+      const td = target.closest('td');
+      const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
+      const stepMonths = dp.get(inst, 'stepMonths');
+      const onChange = inst.settings.onChangeMonthYear;
+      inst.settings.onChangeMonthYear = () => {
+        // Apparently the callback is running before
+        // the new calendar is added to the dom
+        setTimeout(() => {
+          let targetTd = inst.dpDiv.querySelector(
+            `[data-day="${td.dataset.day}"]:not(.ui-datepicker-other-month)`,
+          );
+          if (!targetTd) {
+            const trs = inst.dpDiv.querySelector('tbody').children;
+            const lastTr = last(trs);
+            targetTd = last(
+              lastTr.querySelectorAll('td:not(.ui-datepicker-other-month)'),
+            );
+          }
+          const targetBtn = targetTd.querySelector('.ui-state-default');
+          targetBtn && targetBtn.classList.add('ui-state-highlight');
+          targetBtn && targetBtn.focus();
+          inst.settings.onChangeMonthYear = onChange;
+        }, 50);
+      };
+      dp.adjustDate(id, +stepMonths, 'M');
+      break;
+    }
+
+    // HOME
+    case 36: {
+      const current = inst.dpDiv.querySelector('.ui-state-highlight');
+      current && current.classList.remove('ui-state-highlight');
+      const firstDay = inst.dpDiv.querySelector('.ui-datepicker-day');
+      firstDay && firstDay.classList.add('ui-state-highlight');
+      firstDay && firstDay.focus();
+      break;
+    }
+
+    // END
+    case 35: {
+      const current = inst.dpDiv.querySelector('.ui-state-highlight');
+      current && current.classList.remove('ui-state-highlight');
+      const lastDay = last(inst.dpDiv.querySelectorAll('.ui-datepicker-day'));
+      lastDay && lastDay.classList.add('ui-state-highlight');
+      lastDay && lastDay.focus();
+      break;
+    }
   }
 
   if (handled) {
@@ -2991,6 +3169,134 @@ function first(arr) {
 
 function last(arr) {
   return arr && arr[arr.length - 1];
+}
+
+/* Update or retrieve the settings for a date picker attached to an input field or division.
+ * @param  target  element - the target input field or division or span
+ * @param  name	object - the new settings to update or
+ *         string - the name of the setting to change or retrieve,
+ *         when retrieving also "all" for all instance settings or
+ *         "defaults" for all global defaults
+ * @param  value   any - the new value for the setting
+ *         (omit if above is an object or to retrieve a value)
+ */
+function optionDatepicker(target, name, value) {
+  const inst = this.getInst(target);
+  const dp = window.__quno__.datepicker;
+
+  if (arguments.length === 2 && typeof name === 'string') {
+    return name === 'defaults'
+      ? Object.assign({}, dp.defaults)
+      : inst
+      ? name === 'all'
+        ? Object.assign({}, inst.settings)
+        : this.get(inst, name)
+      : null;
+  }
+
+  let settings = name || {};
+  if (typeof name === 'string') {
+    settings = {};
+    settings[name] = value;
+  }
+
+  if (inst) {
+    if (this.curInst === inst) {
+      this.hideDatepicker();
+    }
+
+    const date = this.getDateDatepicker(target, true);
+    const minDate = this.getMinMaxDate(inst, 'min');
+    const maxDate = this.getMinMaxDate(inst, 'max');
+    datepicker_extendRemove(inst.settings, settings);
+
+    // reformat the old minDate/maxDate values if dateFormat changes and a new minDate/maxDate isn't provided
+    if (
+      minDate !== null &&
+      settings.dateFormat !== undefined &&
+      settings.minDate === undefined
+    ) {
+      inst.settings.minDate = this.formatDate(inst, minDate);
+    }
+    if (
+      maxDate !== null &&
+      settings.dateFormat !== undefined &&
+      settings.maxDate === undefined
+    ) {
+      inst.settings.maxDate = this.formatDate(inst, maxDate);
+    }
+
+    if ('disabled' in settings) {
+      if (settings.disabled) {
+        this.disableDatepicker(target);
+      } else {
+        this.enableDatepicker(target);
+      }
+    }
+    this.attachments(target, inst);
+    this.autoSize(inst);
+    this.setDate(inst, date);
+    this.updateAlternate(inst);
+    this.updateDatepicker(inst);
+  }
+}
+
+/* Get the date(s) for the first entry in a jQuery selection.
+ * @param  target element - the target input field or division or span
+ * @param  noDefault boolean - true if no default date is to be used
+ * @return Date - the current date
+ */
+function getDateDatepicker(target, noDefault) {
+  const inst = this.getInst(target);
+  if (inst && !inst.inline) {
+    this.setDateFromField(inst, noDefault);
+  }
+
+  return inst ? this.getDate(inst) : null;
+}
+
+/* Retrieve the date(s) directly. */
+function getDate(inst) {
+  const startDate =
+    !inst.currentYear || (inst.input && inst.input.value === '')
+      ? null
+      : this.daylightSavingAdjust(
+          new Date(inst.currentYear, inst.currentMonth, inst.currentDay),
+        );
+  return startDate;
+}
+
+/* Detach a datepicker from its control.
+ * @param  target	element - the target input field or division or span
+ */
+function destroyDatepicker(target) {
+  target = typeof target === 'string' ? document.querySelector(target) : target;
+  const inst = this.getInst(target);
+
+  if (!target.classList.contains(this.markerClassName)) {
+    return;
+  }
+
+  const nodeName = target.nodeName.toLowerCase();
+  target.datepicker = null;
+
+  if (nodeName === 'input') {
+    inst.append && inst.append.remove();
+    inst.trigger && inst.trigger.remove();
+    target.classList.remove(this.markerClassName);
+    target.removeEventListener('focus', this.showDatepicker);
+    target.removeEventListener('keydown', this.doKeyDown);
+    target.removeEventListener('keypress', this.doKeyPress);
+    target.removeEventListener('keyup', this.doKeyUp);
+  } else if (nodeName === 'div' || nodeName === 'span') {
+    target.classList.remove(this.markerClassName);
+    target.innerHTML = '';
+  }
+
+  if (datepicker_instActive === inst) {
+    datepicker_instActive = null;
+    this.curInst = null;
+  }
 }
 
 // ===================================================================
@@ -3026,6 +3332,7 @@ proto.daylightSavingAdjust = daylightSavingAdjust;
 proto.formatDate = formatDate;
 proto.ticksTo1970 = ticksTo1970;
 proto.getFormatConfig = getFormatConfig;
+proto.enableDatepicker = enableDatepicker;
 proto.disableDatepicker = disableDatepicker;
 proto.inlineDatepicker = inlineDatepicker;
 proto.setDate = setDate;
@@ -3056,10 +3363,21 @@ proto.updateAlternate = updateAlternate;
 proto.selectMonthYear = selectMonthYear;
 proto.shouldFocusInput = shouldFocusInput;
 proto.checkExternalClick = checkExternalClick;
-
-// TBD
 proto.widgetDatePicker = widgetDatePicker;
 proto.setDefaults = setDefaults;
+proto.optionDatepicker = optionDatepicker;
+proto.getDateDatepicker = getDateDatepicker;
+proto.getDate = getDate;
+proto.destroyDatepicker = destroyDatepicker;
+/**
+ * @todo:
+ * add Missing functions:
+ * - dialogDatepicker
+ * - destroyDatepicker
+ * - refreshDatepicker
+ * - setDateDatepicker
+ * - ...?
+ */
 
 /* Invoke the datepicker functionality. ($.fn.datepicker)
  *  @param  options  string - a command, optionally followed by additional parameters
@@ -3097,27 +3415,35 @@ const datepicker = function(selectorOrInput, options) {
     document.body.appendChild(dp.dpDiv);
   }
 
-  const otherArgs = Array.prototype.slice.call(arguments, 1);
+  const otherArgs = Array.prototype.slice.call(arguments, 2);
   if (
     typeof options === 'string' &&
     (options === 'isDisabled' || options === 'getDate' || options === 'widget')
   ) {
-    return dp[`${options}Datepicker`].apply(dp, [this].concat(otherArgs));
+    return dp[`${options}Datepicker`].apply(dp, [element, ...otherArgs]);
   }
 
   if (
     options === 'option' &&
-    arguments.length === 2 &&
-    typeof arguments[1] === 'string'
+    arguments.length === 3 &&
+    typeof arguments[2] === 'string'
   ) {
-    return dp[`${options}Datepicker`].apply(dp, [this].concat(otherArgs));
+    return dp[`${options}Datepicker`].apply(dp, [element, ...otherArgs]);
   }
 
-  return [element].forEach(function(el) {
-    typeof options === 'string'
-      ? dp[`${options}Datepicker`].apply(dp, [element].concat(otherArgs))
-      : dp.attachDatepicker(el, options);
-  });
+  // return [element].forEach(function(el) {
+  //   typeof options === 'string'
+  //     ? dp[`${options}Datepicker`].apply(dp, [element].concat(otherArgs))
+  //     : dp.attachDatepicker(el, options);
+  // });
+
+  if (typeof options === 'string') {
+    return dp[`${options}Datepicker`].apply(dp, [element, ...otherArgs]);
+  }
+  return dp.attachDatepicker(element, options);
+
+  // Return the singleton instance
+  // return [inst, dp];
 };
 
 // Singleton instance
@@ -3356,7 +3682,7 @@ function calendarKeyboardListener(evt) {
       handleNextClicks();
     }
 
-    // ?
+    // SPACE
   } else if (which === 32) {
     if (
       target.classList.contains('ui-datepicker-prev') ||
