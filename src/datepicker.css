@@ -89,7 +89,7 @@
   padding: 1px;
 }
 .ui-datepicker td span,
-.ui-datepicker td a {
+.ui-datepicker td button {
   display: block;
   padding: .2em;
   text-align: right;
@@ -247,13 +247,26 @@ button.ui-datepicker-trigger:active {
 .ui-datepicker-next:active {
   top: 1px;
 }
+
 .ui-datepicker-prev:active {
   left: 1px;
 }
+
 .ui-datepicker-next:active {
   right: 1px;
 }
 
 button.ui-state-default {
   width: 100%;
+}
+
+.ui-datepicker-today .ui-state-default {
+  border: 1px solid #dad55e;
+  border: 2px solid green;
+}
+
+.ui-datepicker-day:hover,
+.ui-datepicker-day:active,
+.ui-datepicker-day:focus {
+  outline: #6da031 solid 2px;
 }
