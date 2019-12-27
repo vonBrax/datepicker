@@ -1745,6 +1745,7 @@ function updateDatepicker(inst) {
   // For delegate hover events
   datepicker_instActive = inst;
   inst.dpDiv.innerHTML = '';
+  const keyEvent = inst.keyEvent;
   inst.dpDiv.appendChild(this.generateHTML(inst));
 
   this.attachHandlers(inst);
@@ -1789,9 +1790,9 @@ function updateDatepicker(inst) {
     /**
      * @todo: Review
      * Turning this off to not move focus away from the calendar
-     * when navigating between months using the keyboar
+     * when navigating between months using the keyboard
      */
-    // inst.input.focus();
+    !keyEvent && inst.input.focus();
   }
 
   // Deffered render of the years select (to avoid flashes on Firefox)
@@ -2166,7 +2167,7 @@ function generateHTML(inst) {
           if (
             (printDate.getTime() === selectedDate.getTime() &&
               drawMonth === inst.selectedMonth &&
-              inst._keyEvent) || // user pressed key
+              inst.keyEvent) || // user pressed key
             (defaultDate.getTime() === printDate.getTime() &&
               defaultDate.getTime() === selectedDate.getTime())
           ) {
@@ -2512,7 +2513,7 @@ function attachHandlers(inst) {
 }
 
 /* Adjust one of the date sub-fields. */
-function adjustDate(id, offset, period) {
+function adjustDate(id, offset, period, preserveDatepickerHTML = false) {
   const target = typeof id === 'string' ? document.querySelector(id) : id;
   const inst = this.getInst(target);
 
@@ -2521,6 +2522,10 @@ function adjustDate(id, offset, period) {
   }
 
   this.adjustInstDate(inst, offset, period);
+
+  if (preserveDatepickerHTML) {
+    return;
+  }
   this.updateDatepicker(inst);
 }
 
@@ -2836,15 +2841,17 @@ function doCalendarKeyDown(evt) {
   const inst = dp.curInst;
   // const dpDiv = evt.currentTarget;
   const dpDiv = inst.dpDiv;
-  // const isRTL = inst.dpDiv.classList.contains('ui-datepicker-rtl');
+  const isRTL = inst.dpDiv.classList.contains('ui-datepicker-rtl');
+  inst.keyEvent = true;
 
   switch (evt.keyCode) {
     // ESC
-    case 27:
+    case 27: {
       evt.stopPropagation();
       dp.hideDatepicker();
       handled = false;
       break;
+    }
     // TAB
     case 9: {
       const tabNodes = Array.from(
@@ -2871,289 +2878,111 @@ function doCalendarKeyDown(evt) {
     }
 
     // ARROW LEFT
-    case 37:
-      if (
-        !evt.target.classList.contains('ui-datepicker-close') &&
-        evt.target.classList.contains('ui-state-default')
-      ) {
+    case 37: {
+      if (evt.target.classList.contains('ui-datepicker-day')) {
         // Highlight and focus previous day
-        const td = evt.target.closest('td');
-        const tr = td.closest('tr');
-        const prevTd = td.previousElementSibling;
-        const prevTr = tr.previousElementSibling;
-        if (prevTd && !prevTd.classList.contains('ui-datepicker-other-month')) {
-          evt.target.classList.remove('ui-state-highlight');
-          const prevBtn = prevTd.querySelector('.ui-state-default');
-          prevBtn.classList.add('ui-state-highlight');
-          prevBtn.focus();
-        } else if (prevTr) {
-          evt.target.classList.remove('ui-state-highlight');
-          const prevBtn = last(prevTr.children).querySelector(
-            '.ui-state-default',
-          );
-          prevBtn.classList.add('ui-state-highlight');
-          prevBtn.focus();
-        } else {
-          const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-          const stepMonths = dp.get(inst, 'stepMonths');
-          const onChange = inst.settings.onChangeMonthYear;
-          inst.settings.onChangeMonthYear = () => {
-            // Apparently the callback is running before
-            // the new calendar is added to the dom
-            setTimeout(() => {
-              const tds = inst.dpDiv.querySelectorAll('td > .ui-state-default');
-              const lastTd = last(tds);
-              lastTd && lastTd.classList.add('ui-state-highlight');
-              lastTd && lastTd.focus();
-              inst.settings.onChangeMonthYear = onChange;
-            }, 50);
-          };
-          dp.adjustDate(id, -stepMonths, 'M');
-        }
+        dp.adjustDate(inst.input, isRTL ? +1 : -1, 'D', inst.selectedDay !== 1);
+        dp.highlightAndFocus(inst);
       } else {
         handled = false;
       }
       break;
+    }
 
-    // ARROW LEFT
-    case 39:
-      if (
-        !evt.target.classList.contains('ui-datepicker-close') &&
-        evt.target.classList.contains('ui-state-default')
-      ) {
+    // ARROW RIGHT
+    case 39: {
+      if (evt.target.classList.contains('ui-datepicker-day')) {
         // Highlight and focus next day
         // Highlight previous day
-        const td = evt.target.closest('td');
-        const tr = td.closest('tr');
-        const nextTd = td.nextElementSibling;
-        const nextTr = tr.nextElementSibling;
-        if (nextTd && !nextTd.classList.contains('ui-datepicker-other-month')) {
-          evt.target.classList.remove('ui-state-highlight');
-          const nextBtn = nextTd.querySelector('.ui-state-default');
-          nextBtn.classList.add('ui-state-highlight');
-          nextBtn.focus();
-        } else if (nextTr) {
-          evt.target.classList.remove('ui-state-highlight');
-          const nextBtn = first(nextTr.children).querySelector(
-            '.ui-state-default',
-          );
-          nextBtn.classList.add('ui-state-highlight');
-          nextBtn.focus();
-        } else {
-          const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-          const stepMonths = dp.get(inst, 'stepMonths');
-          const onChange = inst.settings.onChangeMonthYear;
-          inst.settings.onChangeMonthYear = () => {
-            // Apparently the callback is running before
-            // the new calendar is added to the dom
-            setTimeout(() => {
-              const tds = inst.dpDiv.querySelectorAll('td > .ui-state-default');
-              const firstTd = first(tds);
-              firstTd && firstTd.classList.add('ui-state-highlight');
-              firstTd && firstTd.focus();
-              inst.settings.onChangeMonthYear = onChange;
-            }, 50);
-          };
-          dp.adjustDate(id, +stepMonths, 'M');
-        }
+        const { selectedYear, selectedMonth, selectedDay } = inst;
+        const isLastDay =
+          selectedDay === dp.getDaysInMonth(selectedYear, selectedMonth);
+        dp.adjustDate(inst.input, isRTL ? -1 : +1, 'D', !isLastDay);
+        dp.highlightAndFocus(inst);
       } else {
         handled = false;
       }
       break;
+    }
 
     // ARROW UP
-    case 38:
-      if (
-        !evt.target.classList.contains('ui-datepicker-close') &&
-        evt.target.classList.contains('ui-state-default')
-      ) {
+    case 38: {
+      if (evt.target.classList.contains('ui-datepicker-day')) {
         // Highlight and focus previous week day
-        const td = evt.target.closest('td');
-        const tdIndex = td.cellIndex;
-        const tr = td.closest('tr');
-        const prevTr = tr.previousElementSibling;
-        const prevTd = prevTr && prevTr.children[tdIndex];
-        if (prevTd && !prevTd.classList.contains('ui-datepicker-other-month')) {
-          evt.target.classList.remove('ui-state-highlight');
-          const prevBtn = prevTd.querySelector('.ui-state-default');
-          prevBtn.classList.add('ui-state-highlight');
-          prevBtn.focus();
-        } else {
-          const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-          const stepMonths = dp.get(inst, 'stepMonths');
-          const onChange = inst.settings.onChangeMonthYear;
-          inst.settings.onChangeMonthYear = () => {
-            // Apparently the callback is running before
-            // the new calendar is added to the dom
-            setTimeout(() => {
-              const trs = inst.dpDiv.querySelectorAll('tbody > tr');
-              const lastTr = last(trs);
-              let targetTd = lastTr && lastTr.children[tdIndex];
-              if (targetTd.classList.contains('ui-datepicker-other-month')) {
-                targetTd = lastTr.previousElementSibling.children[tdIndex];
-              }
-              const targetBtn = targetTd.querySelector('.ui-state-default');
-              targetBtn && targetBtn.classList.add('ui-state-highlight');
-              targetBtn && targetBtn.focus();
-              inst.settings.onChangeMonthYear = onChange;
-            }, 50);
-          };
-          dp.adjustDate(id, -stepMonths, 'M');
-        }
+        const previousMonth = inst.selectedDay - 7 < 1;
+        dp.adjustDate(inst.input, -7, 'D', !previousMonth);
+        dp.highlightAndFocus(inst);
       } else {
         handled = false;
       }
       break;
+    }
 
     // ARROW DOWN
-    case 40:
-      if (
-        !evt.target.classList.contains('ui-datepicker-close') &&
-        evt.target.classList.contains('ui-state-default')
-      ) {
+    case 40: {
+      if (evt.target.classList.contains('ui-datepicker-day')) {
         // Highlight and focus next week day
-        const td = evt.target.closest('td');
-        const tdIndex = td.cellIndex;
-        const tr = td.closest('tr');
-        const nextTr = tr.nextElementSibling;
-        const nextTd = nextTr && nextTr.children[tdIndex];
-        if (nextTd && !nextTd.classList.contains('ui-datepicker-other-month')) {
-          evt.target.classList.remove('ui-state-highlight');
-          const nextBtn = nextTd.querySelector('.ui-state-default');
-          nextBtn.classList.add('ui-state-highlight');
-          nextBtn.focus();
-        } else {
-          const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-          const stepMonths = dp.get(inst, 'stepMonths');
-          const onChange = inst.settings.onChangeMonthYear;
-          inst.settings.onChangeMonthYear = () => {
-            // Apparently the callback is running before
-            // the new calendar is added to the dom
-            setTimeout(() => {
-              const trs = inst.dpDiv.querySelectorAll('tbody > tr');
-              const firstTr = first(trs);
-              let targetTd = firstTr && firstTr.children[tdIndex];
-              if (targetTd.classList.contains('ui-datepicker-other-month')) {
-                targetTd = firstTr.nextElementSibling.children[tdIndex];
-              }
-              const targetBtn = targetTd.querySelector('.ui-state-default');
-              targetBtn && targetBtn.classList.add('ui-state-highlight');
-              targetBtn && targetBtn.focus();
-              inst.settings.onChangeMonthYear = onChange;
-            }, 50);
-          };
-          dp.adjustDate(id, +stepMonths, 'M');
-        }
+        const { selectedYear, selectedMonth, selectedDay } = inst;
+        const nextMonth =
+          selectedDay + 7 > dp.getDaysInMonth(selectedYear, selectedMonth);
+        dp.adjustDate(inst.input, +7, 'D', !nextMonth);
+        dp.highlightAndFocus(inst);
       } else {
         handled = false;
       }
       break;
+    }
 
     // ENTER
-    case 13:
-
-    // eslint-disable-next-line no-fallthrough
-    case 32: // SPACE
+    case 13: {
       handled = false;
       break;
+    }
+
+    // SPACE
+    case 32: {
+      handled = false;
+      break;
+    }
 
     // PAGE UP
     case 33: {
       // Highlight and focus same day from month before
-      let target = evt.target;
-      if (!target.classList.contains('ui-state-day')) {
-        target =
-          inst.dpDiv.querySelector('.ui-state-highlight') ||
-          inst.dpDiv.querySelector(
-            '.ui-datepicker-today > .ui-state-default',
-          ) ||
-          inst.dpDiv.querySelector('.ui-state-default');
-      }
-      const td = target.closest('td');
-      const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-      const stepMonths = dp.get(inst, 'stepMonths');
-      const onChange = inst.settings.onChangeMonthYear;
-      inst.settings.onChangeMonthYear = () => {
-        // Apparently the callback is running before
-        // the new calendar is added to the dom
-        setTimeout(() => {
-          let targetTd = inst.dpDiv.querySelector(
-            `[data-day="${td.dataset.day}"]:not(.ui-datepicker-other-month)`,
-          );
-          if (!targetTd) {
-            const trs = inst.dpDiv.querySelector('tbody').children;
-            const lastTr = last(trs);
-            targetTd = last(
-              lastTr.querySelectorAll('td:not(.ui-datepicker-other-month)'),
-            );
-          }
-          const targetBtn = targetTd.querySelector('.ui-state-default');
-          targetBtn && targetBtn.classList.add('ui-state-highlight');
-          targetBtn && targetBtn.focus();
-          inst.settings.onChangeMonthYear = onChange;
-        }, 50);
-      };
-      dp.adjustDate(id, -stepMonths, 'M');
+      dp.adjustDate(inst.input, -dp.get(inst, 'stepMonths'), 'M');
+      dp.highlightAndFocus(inst);
       break;
     }
 
     // PAGE DOWN
     case 34: {
       // Highlight and focus same day from month before
-      let target = evt.target;
-      if (!target.classList.contains('ui-state-day')) {
-        target =
-          inst.dpDiv.querySelector('.ui-state-highlight') ||
-          inst.dpDiv.querySelector(
-            '.ui-datepicker-today > .ui-state-default',
-          ) ||
-          inst.dpDiv.querySelector('.ui-state-default');
-      }
-      const td = target.closest('td');
-      const id = `#${inst.id.replace(/\\\\/g, '\\')}`;
-      const stepMonths = dp.get(inst, 'stepMonths');
-      const onChange = inst.settings.onChangeMonthYear;
-      inst.settings.onChangeMonthYear = () => {
-        // Apparently the callback is running before
-        // the new calendar is added to the dom
-        setTimeout(() => {
-          let targetTd = inst.dpDiv.querySelector(
-            `[data-day="${td.dataset.day}"]:not(.ui-datepicker-other-month)`,
-          );
-          if (!targetTd) {
-            const trs = inst.dpDiv.querySelector('tbody').children;
-            const lastTr = last(trs);
-            targetTd = last(
-              lastTr.querySelectorAll('td:not(.ui-datepicker-other-month)'),
-            );
-          }
-          const targetBtn = targetTd.querySelector('.ui-state-default');
-          targetBtn && targetBtn.classList.add('ui-state-highlight');
-          targetBtn && targetBtn.focus();
-          inst.settings.onChangeMonthYear = onChange;
-        }, 50);
-      };
-      dp.adjustDate(id, +stepMonths, 'M');
+      dp.adjustDate(inst.input, +dp.get(inst, 'stepMonths'), 'M');
+      dp.highlightAndFocus(inst);
       break;
     }
 
     // HOME
     case 36: {
-      const current = inst.dpDiv.querySelector('.ui-state-highlight');
-      current && current.classList.remove('ui-state-highlight');
-      const firstDay = inst.dpDiv.querySelector('.ui-datepicker-day');
-      firstDay && firstDay.classList.add('ui-state-highlight');
-      firstDay && firstDay.focus();
+      // Highlight and focus first day of month
+      const { selectedDay } = inst;
+      const td = evt.target.closest('td');
+      if (selectedDay !== 1 || td.dataset.day !== '1') {
+        dp.adjustDate(inst.input, -(selectedDay - 1), 'D');
+        dp.highlightAndFocus(inst);
+      }
       break;
     }
 
     // END
     case 35: {
-      const current = inst.dpDiv.querySelector('.ui-state-highlight');
-      current && current.classList.remove('ui-state-highlight');
-      const lastDay = last(inst.dpDiv.querySelectorAll('.ui-datepicker-day'));
-      lastDay && lastDay.classList.add('ui-state-highlight');
-      lastDay && lastDay.focus();
+      // Highlight and focus last day of month
+      const { selectedYear, selectedMonth, selectedDay } = inst;
+      const days = dp.getDaysInMonth(selectedYear, selectedMonth);
+      const td = evt.target.closest('td');
+      if (selectedDay < days || +td.dataset.day !== days) {
+        dp.adjustDate(inst.input, +(days - selectedDay), 'D');
+        dp.highlightAndFocus(inst);
+      }
       break;
     }
   }
@@ -3163,12 +2992,18 @@ function doCalendarKeyDown(evt) {
   }
 }
 
-function first(arr) {
-  return arr && arr[0];
-}
-
-function last(arr) {
-  return arr && arr[arr.length - 1];
+function highlightAndFocus(inst) {
+  const { selectedYear, selectedMonth, selectedDay } = inst;
+  const selector = `td[data-year="${selectedYear}"][data-month="${selectedMonth}"][data-day="${selectedDay}"]`;
+  const td = inst.dpDiv.querySelector(selector);
+  const btn = td && td.querySelector('.ui-datepicker-day');
+  const highlighted = inst.dpDiv.querySelector('.ui-state-highlight');
+  highlighted && highlighted.classList.remove('ui-state-highlight');
+  if (btn) {
+    btn.focus();
+    btn.classList.add('ui-state-highlight');
+    btn.classList.add(this.dayOverClass); // Is it necessary??
+  }
 }
 
 /* Update or retrieve the settings for a date picker attached to an input field or division.
@@ -3365,6 +3200,7 @@ proto.shouldFocusInput = shouldFocusInput;
 proto.checkExternalClick = checkExternalClick;
 proto.widgetDatePicker = widgetDatePicker;
 proto.setDefaults = setDefaults;
+proto.highlightAndFocus = highlightAndFocus;
 proto.optionDatepicker = optionDatepicker;
 proto.getDateDatepicker = getDateDatepicker;
 proto.getDate = getDate;
@@ -3454,804 +3290,3 @@ window.__quno__.datepicker.uuid = new Date().getTime();
 window.__quno__.datepicker.version = '@VERSION';
 
 export { datepicker };
-
-// ===================================================================
-//
-//  END DATE PICKER UI
-//
-// ====================================================================
-
-/* eslint-disable */
-
-// ===================================================================
-// Source code adapted (vanilla) from:
-// https://dequeuniversity.com/library/aria/date-pickers/sf-date-picker
-// Dependencies: jQuery, jQuery UI
-// ====================================================================
-
-/*
-$(function () {
-  $('#datepicker').datepicker({
-    showOn: 'button',
-    buttonImage: 'https://dequeuniversity.com/assets/images/calendar.png', // File (and file path) for the calendar image
-    buttonImageOnly: false,
-    buttonText: 'Calendar View',
-    dayNamesShort: [ "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ],
-    showButtonPanel: true,
-    closeText: 'Close',
-    onClose: removeAria
-  });
-
-  // Add aria-describedby to the button referring to the label
-  $('.ui-datepicker-trigger').attr('aria-describedby', 'datepickerLabel');
-
-  dayTripper();
-});
-*/
-
-function dayTripper() {
-  const trigger = document.querySelector('.ui-datepicker-trigger');
-  if (trigger) {
-    trigger.addEventListener('click', onTriggerClick);
-  }
-}
-
-function onTriggerClick() {
-  setTimeout(() => {
-    let today = document.querySelector('.ui-datepicker-today a');
-
-    if (!today) {
-      today =
-        document.querySelector('.ui-state-active') ||
-        document.querySelector('.ui-state-default');
-    }
-
-    // Hide the entire page (except the date picker)
-    // from screen readers to prevent documnet navigation
-    // (by headings, etc.) while the popup is open
-    const main = document.querySelector('main');
-    if (main) main.setAttribute('id', 'dp-container');
-    const dpContainer = document.querySelector('#dp-container');
-    if (dpContainer) dpContainer.setAttribute('aria-hidden', 'true');
-    const skipNav = document.querySelector('#skipnav');
-    if (skipNav) skipNav.setAttribute('aria-hidden', 'true');
-
-    // Hide the "today" button because it doesn't do what
-    // you think it supposed to do
-    const todayBtn = document.querySelector('.ui-datepicker-current');
-    if (todayBtn) todayBtn.style.display = 'none';
-
-    today.focus();
-    datePickHandler();
-    document.addEventListener('click', closeCalendar);
-    // #ui-datepicker-div .ui-datepicker-close
-  }, 0);
-}
-
-function datePickHandler() {
-  let activeDate;
-  const container = document.getElementById('ui-datepicker-div');
-  const input = document.getElementById('datepicker');
-
-  if (!container || !input) {
-    return;
-  }
-
-  container.setAttribute('role', 'application');
-  container.setAttribute('aria-label', 'Calendar view date-picker');
-
-  // The top controls:
-  const prev = container.querySelector('.ui-datepicker-prev');
-  const next = container.querySelector('.ui-datepicker-next');
-
-  // This is the line that needs to be fixed for use on pages with base URL set in head
-  next.href = 'javascript:void(0)';
-  prev.href = 'javascript:void(0)';
-
-  next.setAttribute('role', 'button');
-  next.removeAttribute('title');
-  prev.setAttribute('role', 'button');
-  prev.removeAttribute('title');
-
-  appendOffscreenMonthText(next);
-  appendOffscreenMonthText(prev);
-
-  // Delegation won't work here for whatever reason, se we are
-  // forced to attach individual click listeners to the prev /
-  // next month buttons each time they are added to the DOM
-
-  next.addEventListener('click', handleNextClicks);
-  prev.addEventListener('click', handlePrevClicks);
-
-  monthDayYearText();
-
-  container.addEventListener('keydown', calendarKeyboardListener);
-}
-
-function calendarKeyboardListener(evt) {
-  const { which, target } = evt.which;
-  let dateCurrent = getCurrentDate(container);
-
-  if (!dateCurrent) {
-    dateCurrent = document.querySelector('a.ui-state-default');
-    setHighlightState(dateCurrent, container);
-  }
-
-  // ESC
-  if (which === 27) {
-    evt.stopPropagation();
-    return closeCalendar();
-
-    // SHIFT + TAB
-  } else if (which === 9 && evt.shiftKey) {
-    evt.preventDefault();
-
-    // Close button
-    if (target.classList.contains('ui-datepicker-close')) {
-      document.querySelector('.ui-datepicker-prev').focus();
-
-      // Date link
-    } else if (target.classList.contains('ui-state-default')) {
-      document.querySelector('.ui-datepicker-close').focus();
-
-      // The prev link
-    } else if (target.classList.contains('ui-datepicker-prev')) {
-      document.querySelector('.ui-datepicker-next').focus();
-
-      // The next link
-    } else if (target.classList.contains('ui-datepicker-next')) {
-      activeDate =
-        document.querySelector('.ui-state-highlight') ||
-        document.querySelector('.ui-state-active');
-
-      if (activeDate) {
-        activeDate.focus();
-      }
-    }
-
-    // TAB
-  } else if (which === 9) {
-    evt.preventDefault();
-
-    // Close button
-    if (target.classList.contains('ui-datepicker-close')) {
-      activeDate =
-        document.querySelector('.ui-state-highlight') ||
-        document.querySelector('.ui-state-active');
-
-      if (activeDate) {
-        activeDate.focus();
-      }
-    } else if (target.classList.contains('ui-state-default')) {
-      document.querySelector('.ui-datepicker-next').focus();
-    } else if (target.classList.contains('ui-datepicker-next')) {
-      document.querySelector('.ui-datepicker-prev').focus();
-    } else if (target.classList.contains('ui-datepicker-prev')) {
-      document.querySelector('.ui-datepicker-close').focus();
-    }
-
-    // LEFT arrow
-  } else if (which === 37) {
-    // If we're on a date link
-    if (
-      !target.classList.contains('ui-datepicker-close') &&
-      target.classList.contains('ui-state-default')
-    ) {
-      evt.preventDefault();
-      previousDay(target);
-    }
-
-    // RIGHT arrow
-  } else if (which === 39) {
-    // If we're on a date link
-    if (
-      !target.classList.contains('ui-datepicker-close') &&
-      target.classList.contains('ui-state-default')
-    ) {
-      evt.preventDefault();
-      nextDay(target);
-    }
-
-    // UP arrow
-  } else if (which === 38) {
-    if (
-      !target.classList.contains('ui-datepicker-close') &&
-      target.classList.contains('ui-state-default')
-    ) {
-      evt.preventDefault();
-      upHandler(target, container, prev);
-    }
-
-    // DOWN arrow
-  } else if (which === 40) {
-    if (
-      !target.classList.contains('ui-datepicker-close') &&
-      target.classList.contains('ui-state-default')
-    ) {
-      evt.preventDefault();
-      downHandler(target, container, next);
-    }
-
-    // ENTER
-  } else if (which === 13) {
-    if (target.classList.contains('ui-state-default')) {
-      setTimeout(() => closeCalendar(), 100);
-    } else if (target.classList.contains('ui-datepicker-prev')) {
-      handlePrevClicks();
-    } else if (target.classList.contains('ui-datepicker-next')) {
-      handleNextClicks();
-    }
-
-    // SPACE
-  } else if (which === 32) {
-    if (
-      target.classList.contains('ui-datepicker-prev') ||
-      target.classList.contains('ui-datepicker-next')
-    ) {
-      target.click();
-    }
-
-    // PAGE UP
-  } else if (which === 33) {
-    moveOneMonth(target, 'prev');
-
-    // PAGE DOWN
-  } else if (which === 34) {
-    moveOneMonth(target, 'next');
-
-    // HOME
-  } else if (which === 36) {
-    const firstOfMonth = target
-      .closest('tbody')
-      .querySelector('.ui-state-default');
-
-    if (firstOfMonth) {
-      firstOfMonth.focus();
-      setHighlightState(
-        firstOfMonth,
-        document.querySelector('#ui-datepicker-div'),
-      );
-    }
-
-    // END
-  } else if (which === 35) {
-    const $daysOfMonth = target
-      .closest('tbody')
-      .querySelectorAll('.ui-state-default');
-    const lastDay = $daysOfMonth($daysOfMonth.length - 1);
-
-    if (lastDay) {
-      lastDay.focus();
-      setHighlightState(lastDay, document.querySelector('#ui-datepicker-div'));
-    }
-  }
-
-  document.querySelector('.ui-datepicker-current').style.display === 'none';
-}
-
-function closeCalendar() {
-  const container = document.querySelector('#ui-datepicker-div');
-  container.removeEventListener('keydown', calendarKeyboardListener);
-  const input = document.querySelector('#datepicker');
-  /*
-   * @todo: REFACTOR
-   */
-  // input.datepicker('hide')
-}
-
-function removeAria() {
-  // make the rest of the page accessible again
-  document.querySelector('#dp-container').removeAttribute('aria-hidden');
-  document.querySelector('#skipnav').removeAttribute('aria-hidden');
-}
-
-/*
- * UTILS
- */
-const isOdd = num => num % 2;
-
-function moveOneMonth(currentDate, dir) {
-  const button =
-    dir === 'next'
-      ? document.querySelector('.ui-datepicker-next')
-      : document.querySelector('.ui-datepicker-prev');
-
-  if (!button) {
-    return;
-  }
-
-  const ENABLED_SELECTOR =
-    '#ui-datepicker-div tbody td:not(.ui-state-disabled)';
-  const currentCells = Array.from(document.querySelectorAll(ENABLED_SELECTOR));
-  let currentIdx = currentCells.findIndex(el => el === currentDate.parentNode);
-
-  button.click();
-
-  setTimeout(() => {
-    updateHeaderElements();
-
-    const newCells = document.querySelectorAll(ENABLED_SELECTOR);
-    let newTd = newCells[currentIdx];
-    // let newAnchor = newTd && newTd.querySelector('a');
-    let newAnchor = newTd && newTd.querySelector('button');
-
-    while (!newAnchor) {
-      currentIdx--;
-      newTd = newCells[currentIdx];
-      // newAnchor = newTd && newTd.querySelector('a');
-      newAnchor = newTd && newTd.querySelector('button');
-    }
-
-    setHighlightState(newAnchor, document.querySelector('#ui-datepicker-div'));
-    newAnchor.focus();
-  }, 0);
-}
-
-function handleNextClicks() {
-  setTimeout(() => {
-    updateHeaderElement();
-    prepHighlightState();
-    document.querySelector('.ui-datepicker-next').focus();
-    document.querySelector('.ui-datepicker-current').style.display = 'none';
-  }, 0);
-}
-
-function handlePrevClicks() {
-  setTimeout(() => {
-    updateHeaderElements();
-    prepHighlightState();
-    document.querySelector('.ui-datepicker-prev').focus();
-    document.querySelector('.ui-datepicker-current').style.display = 'none';
-  }, 0);
-}
-
-function previousDay(dateLink) {
-  if (!dateLink) {
-    return;
-  }
-
-  const td = dateLink.closest('td');
-  if (!td) {
-    return;
-  }
-
-  const container = document.getElementById('ui-datepicker-div');
-  const prevTd = td.previousElementSibling;
-
-  /*
-   * @todo: REVIEW
-   *  // prevDateLink = $('a.ui-state-default', prevTd)[0];
-   */
-  const prevDateLink = prevTd.querySelector('a.ui-state-default');
-
-  if (prevTd && prevDateLink) {
-    setHighlightState(prevDateLink, container);
-    prevDateLink.focus();
-  } else {
-    handlePrevious(dateLink);
-  }
-}
-
-function handlePrevious(target) {
-  const container = document.getElementById('ui-datepicker-div');
-
-  if (!target) {
-    return;
-  }
-
-  const currentRow = target.closest('tr');
-
-  if (!currentRow) {
-    return;
-  }
-
-  const previousRow = currentRow.previousElementSibling;
-  if (!previousRow) {
-    // There is not a previous row, so we go to previous month
-    previousMonth();
-  } else {
-    /*
-     * @todo: REVIEW
-     *  // var prevRowDates = $('td a.ui-state-default', previousRow);
-     */
-    const prevRowDates = previousRow.querySelectorAll('td a.ui-state-default');
-    const prevRowDate = prevRowDates[prevRowDates.length - 1];
-
-    if (prevRowDate) {
-      setTimeout(() => {
-        setHighlightState(prevRowDate, container);
-        prevRowDate.focus();
-      }, 0);
-    }
-  }
-}
-
-function previousMonth() {
-  const prevLink = document.querySelector('.ui-datepicker-prev');
-  const container = document.getElementById('ui-datepicker-div');
-  prevLink.click();
-
-  // Focus last day of new month
-  setTimeout(() => {
-    const trs = container.querySelectorAll('tr');
-    const lastRowTdLinks = trs[trs.length - 1].querySelectorAll(
-      'td a.ui-state-default',
-    );
-    const lastDate = lastRowTdLinks[lastRowTdLinks.length - 1];
-
-    // Update the cached header elements
-    updateHeaderElements();
-
-    setHighlightState(lastDate, container);
-    lastDate.focus();
-  }, 0);
-}
-
-/*
- * =====================
- *  NEXT
- * =====================
- */
-
-/*
- * Handles right arrow key navigation
- * @param [HTMLElement] dateLink the target of the keyboard event
- */
-function nextDay(dateLink) {
-  const container = document.getElementById('ui-datepicker-div');
-  if (!dateLink) {
-    return;
-  }
-
-  const td = dateLink.closest('td');
-  if (!td) {
-    return;
-  }
-
-  const nextTd = td.nextElementSibling;
-  const nextDateLink = nextTd.querySelector('a.ui-state-default');
-
-  if (nextTd && nextDateLink) {
-    setHightlightState(nextDateLink, container);
-    // The next day (same row)
-    nextDateLink.focus();
-  } else {
-    handleNext(dateLink);
-  }
-}
-
-function handleNext(target) {
-  const container = document.getElementById('ui-datepicker-div');
-  if (!target) {
-    return;
-  }
-
-  const currentRow = target.closest('tr');
-  const nextRow = currentRow.nextElementSibling;
-
-  if (!nextRow) {
-    nextMonth();
-  } else {
-    const nextRowFirstDate = nextRow.querySelector('a.ui-state-default');
-    if (nextRowFirstDate) {
-      setHighlightState(nextRowFirstDate, container);
-      nextRowFirstDate.focus();
-    }
-  }
-}
-
-function nextMonth() {
-  nextMon = document.querySelector('.ui-datepicker-next');
-  const container = documnt.getElementById('ui-datepicker-div');
-  nextMon.click();
-
-  // Focus the first day of the new month
-  setTimeout(() => {
-    // Update the cached header elements
-    updateHeaderElements();
-
-    const firstDate = container.querySelector('a.ui-state-default');
-    setHighlightState(firstDate, container);
-    firstDate.focus();
-  }, 0);
-}
-
-/*
- * =====================
- *  UP
- * =====================
- */
-
-/*
- * Handle the up arrow navigation through dates
- * @param (HTMLElement) target The target of the keyboard event (day)
- * @param (HTMLElement) cont The calendar container
- * @param (HTMLElement) prevLink Link to navigate to previous month
- */
-function upHandler(target, cont, prevLink) {
-  prevLink = document.querySelector('.ui-datepicker-prev');
-  const rowContext = target.closest('tr');
-  if (!rowContext) {
-    return;
-  }
-
-  const rowTds = Array.from(rowContext.querySelectorAll('td'));
-  const rowLinks = Array.from(
-    rowContext.querySelectorAll('a.ui-state-default'),
-  );
-  const targetIndex = rowLinks.findIndex(el => el === target);
-  const prevRow = rowContext.previousElementSibling;
-  const prevRowTds = prevRow.querySelectorAll('td');
-  const parallel = prevRowTds[targetIndex];
-  const linkCheck = parallel.querySelector('a.ui-state-default');
-
-  if (prevRow && parallel && linkCheck) {
-    // There is a previous row, a td at the same index
-    // of the target AND there is a link in that td
-    setHighlightState(linkCheck, cont);
-    linkCheck.focus();
-  } else {
-    // We're either on the first row of a month, or we're on the
-    // second and there is not a date link directly above the target
-    prevLink.click();
-    setTimeout(() => {
-      // Update the cached header elements
-      updateHeaderElements();
-
-      const newRows = cont.querySelectorAll('tr');
-      const lastRow = newRows[newRows.length - 1];
-      const lastRowTds = lastRow.querySelectorAll('td');
-      const tdParallelIndex = rowTds.findIndex(el => el === target.parentNode);
-      const newParallel = lastRowTds[tdParallelIndex];
-      const newCheck = newParallel.querySelector('a.ui-state-default');
-
-      if (lastRow && newParallel && newCheck) {
-        setHighlightState(newCheck, cont);
-        newCheck.focus();
-      } else {
-        // There's no date link on the last week (row) of the new month
-        // meaning its an empty cell, so we'll try the 2nd to last week
-        const secondLastRow = newRows[newRows.length - 2];
-        const secondTds = secondLastRow.querySelectorAll('td');
-        const targetTd = secondTds[tdParallelIndex];
-        const linkCheck = targetTd.querySelector('a.ui-state-default');
-
-        if (linkCheck) {
-          setHighlightState(linkCheck, cont);
-          linkCheck.focus();
-        }
-      }
-    }, 0);
-  }
-}
-
-/*
- * =====================
- *  DOWN
- * =====================
- */
-
-/*
- * Handles down arrow navigation through dates in calendar
- * @param (HTMLElement) target The target of the keyboard event (day)
- * @param (HTLElement) cont The calendar container
- * @param (HTMLElement) nextLink Link to navigate to the next month
- */
-function downHandler(target, cont, nextLink) {
-  nextLink = document.querySelector('.ui-datepicker-next');
-  const targetRow = target.closest('tr');
-  if (!targetRow) {
-    return;
-  }
-
-  const targetCells = Array.from(targetRow.querySelectorAll('td'));
-  // The td (parent of target) index
-  const cellIndex = targetCells.findIndex(el => el === target.parentNode);
-  const nextRow = targetRow.nextElementSibling;
-  const nextRowCells = nextRow.querySelectorAll('td');
-  const nextWeekTd = nextRowCells[cellIndex];
-  const nextWeekCheck = nextWeekTd.querySelector('a.ui-state-default');
-
-  if (nextRow && nextWeekTd && nextWeekCheck) {
-    // Theres a next row, a TD at the same index of 'target',
-    // and theres an anchor within that td
-    setHighlightState(nextWeekCheck, cont);
-    nextWeekCheck.focus();
-  } else {
-    nextLink.click();
-
-    setTimeout(() => {
-      // Update the cached header elements
-      updateHeaderElements();
-
-      const nextMonthTrs = cont.querySelectorAll('tbody tr');
-      const firstTds = nextMonthTrs.querySelectorAll('td');
-      const firstParallel = firstTds[cellIndex];
-      const firstCheck = firstParallel.querySelector('a.ui-state-default');
-
-      if (firstParallel && firstCheck) {
-        setHighlightState(firstCheck, cont);
-        firstCheck.focus();
-      } else {
-        // lets try the second row because we didn't find a
-        // date link inthe first row at the target's index
-        const secondRow = nextMonthTrs[1];
-        const secondTds = secondRow.querySelectorAll('td');
-        const secondRowTd = secondTds[cellIndex];
-        const secondCheck = secondRowTd.querySelector('a.ui-state-default');
-
-        if (secondRow && secondCheck) {
-          setHighlightState(secondCheck, cont);
-          secondCheck.focus();
-        }
-      }
-    }, 0);
-  }
-}
-
-function onCalendarHide() {
-  closeCalendar();
-}
-
-// Add an aria-label to the date link indicating the currently focused date
-// (formated identically to the required format: mm/dd/yyyy)
-function monthDayYearText() {
-  /*
-   * @todo: See if it works, or use forEach
-   */
-  const cleanUps = Array.from(document.querySelectorAll('.amaze-date'), clean =>
-    clean.parentNode.removeChild(clean),
-  );
-
-  const datePickDiv = document.getElementById('ui-datepicker-div');
-
-  if (!datePickDiv) {
-    return;
-  }
-
-  const dates = Array.from(
-    datePickDiv.querySelectorAll('a.ui-state-default'),
-    (date, index) => {
-      date.setAttribute('role', 'button');
-      date.addEventListener('keydown', e => {
-        if (e.which === 32) {
-          e.preventDefault();
-          e.target.click();
-          /*
-           * @todo: Check if throws illegal invocation
-           */
-          setTimeout(closeCalendar, 100);
-        }
-      });
-
-      const currentRow = date.closest('tr');
-      const currentTds = Array.from(currentRow.querySelectorAll('td'));
-      const currentIndex = currentTds.findIndex(el => el === date.parentNode);
-      const headThs = datePickDiv.querySelectorAll('thead tr th');
-      const dayIndex = headThs[currentIndex];
-      const daySpan = dayIndex.querySelector('span');
-      const monthName = datePickDiv.querySelector('.ui-datepicker-month')
-        .innerHTML;
-      const year = datePickDiv.querySelector('.ui-datepicker-year').innerHTML;
-      const number = date.innerHTML;
-
-      if (!daySpan || !monthName || !number || !year) {
-        return;
-      }
-
-      // AT Reads: { month } { date } { year } { day }
-      // "December 18 2014 Thursday"
-      const dateText =
-        date.innerHTML + ' ' + monthName + ' ' + year + ' ' + daySpan.title;
-
-      // AT Reads: { date(number) } { name of day } { name of month } { year(number) }
-      // const dateText = date.innerHTML + ' ' + daySpan.title + ' ' + monthName + ' ' + year;
-
-      // Add an aria-label to the date link reading out the currently focused date
-      date.setAttribute('aria-label', dateText);
-    },
-  );
-}
-
-// Update the cached header elements because we're in a new month or year
-function updateHeaderElements() {
-  const context = document.getElementById('ui-datepicker-div');
-  if (!context) {
-    return;
-  }
-
-  const prev = context.querySelector('.ui-datepicker-prev');
-  const next = context.querySelector('.ui-datepicker-next');
-
-  next.href = 'javascript:void(0)';
-  prev.href = 'javascript:void(0)';
-
-  next.setAttribute('role', 'button');
-  prev.setAttribute('role', 'button');
-  appendOffscreenMonthText(next);
-  appendOffscreenMonthText(prev);
-
-  next.addEventListener('click', handleNextClicks);
-  prev.addEventListener('click', handlePrevClicks);
-
-  // Add month day year text
-  monthDayYearText();
-}
-
-function prepHighlightState() {
-  const cage = document.getElementById('ui-datepicker-div');
-  const highlight =
-    cage.querySelector('.ui-state-highlight') ||
-    cage.querySelector('.ui-state-default');
-
-  if (highlight && cage) {
-    setHighlightState(highlight, cage);
-  }
-}
-
-// Set the highlighted class to date elements, when focus is received
-function setHighlightState(newHighlight, container) {
-  const prevHighlight = getCurrentDate(container);
-
-  // Remove the highlight state from previously
-  // highlighted date and add it to our newly active date
-  prevHighlight.classList.remove('ui-state-highlight');
-  newHighlight.classList.add('ui-state-highlight');
-}
-
-// Grabs the current date based on the highlight class
-function getCurrentDate(container) {
-  return container.querySelector('.ui-state-highlight');
-}
-
-// Appends logical next/prev month text to the buttons
-// -ex: Next, Month, January 2015
-//      Previous Month, November 2014
-function appendOffscreenMonthText(button) {
-  const isNext = button.classList.contains('ui-datepicker-next');
-  const months = [
-    'january',
-    'february',
-    'march',
-    'april',
-    'may',
-    'june',
-    'july',
-    'august',
-    'september',
-    'october',
-    'november',
-    'december',
-  ];
-
-  const currentMonth = document
-    .querySelector('.ui-datepicker-title .ui-datepicker-month')
-    .textContent.toLowerCase();
-  const monthIndex = months.findIndex(month => month === currentMonth);
-  let currentYear = document
-    .querySelector('.ui-datepicker-title .ui-datepicker-year')
-    .textContent.toLowerCase();
-  let adjacentIndex = isNext ? monthIndex + 1 : monthIndex - 1;
-
-  if (isNext && currentMonth === 'december') {
-    currentYear = parseInt(currentYear, 10) + 1;
-    adjacentIndex = 0;
-  } else if (!isNext && currentMonth === 'january') {
-    currentYear = parseInt(currentYear, 10) - 1;
-    adjacentIndex = months.length - 1;
-  }
-
-  const buttonText = isNext
-    ? 'Next Month, ' + firstToCap(months[adjacentIndex]) + ' ' + currentYear
-    : 'Previous Month, ' +
-      firstToCap(months[adjacentIndex]) +
-      ' ' +
-      currentYear;
-
-  button.querySelector('.ui-icon').innerHTML = buttonText;
-}
-
-// Capitalize first letter
-function firstToCap(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
