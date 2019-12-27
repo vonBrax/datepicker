@@ -1745,7 +1745,6 @@ function updateDatepicker(inst) {
   // For delegate hover events
   datepicker_instActive = inst;
   inst.dpDiv.innerHTML = '';
-
   inst.dpDiv.appendChild(this.generateHTML(inst));
 
   this.attachHandlers(inst);
@@ -2368,6 +2367,7 @@ function generateMonthYearHeader(
     monthEl.setAttribute('data-event', 'change');
     // Init a11y changes
     monthEl.setAttribute('aria-label', selectMonthLabel);
+    // End a11y changes
 
     for (let month = 0; month < 12; month++) {
       if (
@@ -3402,7 +3402,7 @@ const datepicker = function(selectorOrInput, options) {
   /**
    * @todo:
    * Only add document mousedown listener when
-   * calendar inst is open (dynamic binding)
+   * calendar instance is open (dynamic binding)
    */
   // Initialise the date picker
   if (!dp.initialized) {
