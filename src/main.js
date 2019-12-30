@@ -13,6 +13,8 @@ const options = {
   closeText: 'Close',
   prevText: 'Previous Month',
   nextText: 'Next Month',
+  changeMonth: false,
+  changeYear: false,
 };
 
 const de = {
