@@ -270,3 +270,8 @@ button.ui-state-default {
 .ui-datepicker-day:focus {
   outline: #6da031 solid 2px;
 }
+
+.ui-datepicker-days-cell-over > .ui-state-default {
+  border: 2px solid #fffa90;
+  /* background: #fffa90; */
+}
