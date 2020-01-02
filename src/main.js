@@ -82,11 +82,7 @@ const de = {
   yearSuffix: '',
 };
 
-// const dp = window.__quno__.datepicker;
 const dp = datepicker('#datepicker', options);
-// dp.regional.de = de;
 dp.global.regional.de = de;
-// dp.setDefaults(dp.regional.de);
 dp.global.setDefaults(dp.global.regional.de);
-// datepicker('#datepicker', 'option', dp.regional.de);
 datepicker('#datepicker', 'option', dp.global.regional.de);
