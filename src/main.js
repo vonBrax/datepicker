@@ -19,10 +19,10 @@ const options = {
   showOtherMonths: true,
   selectOtherMonths: false,
   showWeek: true,
-  numberOfMonths: 3,
-  showCurrentAtPos: 1,
+  numberOfMonths: 1,
+  showCurrentAtPos: 0,
   minDate: 1,
-  maxDate: '+1M +10D',
+  maxDate: '+2M +15D',
   hideIfNoPrevNext: false,
   altField: '#datepickerclone',
   altFormat: 'yy-mm-dd',
@@ -82,7 +82,29 @@ const de = {
   yearSuffix: '',
 };
 
+function dateMeta(date) {
+  const dayTime = 24 * 60 * 60 * 1000;
+  const weekDay = date.getDay();
+  const day = date.getTime();
+  const today = new Date().getTime();
+  const range = day - today;
+  let cellClass = 'green';
+  let text = '1+ spots';
+
+  // Switch by range:
+  if (range <= 7 * dayTime) {
+    cellClass = 'red';
+    text = '0 spots';
+  } else if (range <= 12 * dayTime) {
+    cellClass = 'yellow';
+    text = '1 spot';
+  }
+
+  return [weekDay !== 0, cellClass, text];
+}
+
 const dp = datepicker('#datepicker', options);
 dp.global.regional.de = de;
 dp.global.setDefaults(dp.global.regional.de);
 datepicker('#datepicker', 'option', dp.global.regional.de);
+datepicker('#datepicker', 'option', 'beforeShowDay', dateMeta);

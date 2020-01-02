@@ -275,3 +275,19 @@ button.ui-state-default {
   border: 2px solid #fffa90;
   /* background: #fffa90; */
 }
+
+.red {
+  background-color: rgba(174,0,0, 0.4);
+}
+.yellow {
+  background-color: rgba(220,151,0, 0.4);
+}
+.green {
+  background-color: rgba(16,121,71, 0.4);
+}
+
+.red .ui-state-default,
+.yellow .ui-state-default,
+.green .ui-state-default {
+  background-color: transparent;
+}

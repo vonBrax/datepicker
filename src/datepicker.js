@@ -22,36 +22,49 @@ let datepicker_instActive;
 function DatePicker() {
   // The current instance in use
   this.curInst = null;
+
   // If the last event was a key event
   this.keyEvent = false;
+
   // List of date picker inputs that have been disabled
   this.disabledInputs = [];
+
   // True if the popup picker is showing , false if not
   this.datepickerShowing = false;
+
   // True if showing within a "dialog", false if not
   this.inDialog = false;
+
   // The ID of the main datepicker division
   this.mainDivId = 'ui-datepicker-div';
+
   // The name of the inline marker class
   this.inlineClass = 'ui-datepicker-inline';
+
   // The name of the append marker class
   this.appendClass = 'ui-datepicker-append';
+
   // The name of the trigger marker class
   this.triggerClass = 'ui-datepicker-trigger';
+
   // The name of the dialog marker class
   this.dialogClass = 'ui-datepicker-dialog';
+
   // The name of the disabled covering marker class
   this.disableClass = 'ui-datepicker-disabled';
+
   // The name of the unselectable cell marker class
   this.unselectableClass = 'ui-datepicker-unselectable';
+
   // The name of the current day marker class
   this.currentClass = 'ui-datepicker-current-day';
+
   // The name of the day hover marker class
   this.dayOverClass = 'ui-datepicker-days-cell-over';
-  // ADDED FEATURE: highlight marker class
-  // this.highlightClass = 'ui-state-highlight';
+
   // Available regional settings, indexed by language code
   this.regional = [];
+
   // Default regional settings
   this.regional[''] = {
     closeText: 'Done',
@@ -101,12 +114,16 @@ function DatePicker() {
     dateFormat: 'mm/dd/yy',
     firstDay: 0,
     isRTL: false,
+
     // True if the year select precedes month, false for month then year
     showMonthAfterYear: false,
+
     // Additional text to append to the year in the month headers
     yearSuffix: '',
+
     // Invisible label for month selector
     selectMonthLabel: 'Select month',
+
     // Invisible label for year selector
     selectYearLabel: 'Select Year',
   };
@@ -114,89 +131,126 @@ function DatePicker() {
   this.defaults = {
     // "focus" for popup on focus, "button" for trigger button, or "both" for either
     showOn: 'focus',
+
     // Name of jQuery animation for popup
     showAnim: 'fadeIn',
+
     // Options for enhanced animations
     showOptions: {},
+
     // Used when field is blank: actual date, +/-number for offset from today, null for today
     defaultDate: null,
+
     // Display text following the input box, e.g. showing the format
     appendText: '',
+
     // Text for trigger button
     buttonText: '...',
+
     // URL for trigger button image
     buttonImage: '',
+
     // True if the image appears alone, false if it appears on a button
     buttonImageOnly: false,
+
     // True to hide next/previous month links. If not applicable, false to just disable them
     hideIfNoPrevNext: false,
+
     // True if date formatting applied to prev/today/next links
     navigationAsDateFormat: false,
+
     // True if today link goes back to current selection instead
     gotoCurrent: false,
+
     // True if month can be selected directly, false if only prev/next
     changeMonth: false,
+
     // True if year can be selected directly, false if only prev/next
     changeYear: false,
+
     // Range of years to display in drop-down,
     // either relative to today's year (-nn:+nn), relative to currently displayed year
     // (c-nn:c+nn), absolute (nnnn:nnnn), or a combination of the above (nnnn:-n)
     yearRange: 'c-10:c+10',
+
     // True to show dates in other months, false to leave blank
     showOtherMonths: false,
+
     // True to allow selection of dates in other months, false for unselectable
     selectOtherMonths: false,
+
     // True to show week of the year, false to not show it
     showWeek: false,
+
     // How to calculate the week of the year,
     // takes a Date and returns the number of the week for it
     calculateWeek: this.iso8601Week,
+
     // Short year values < this are in the current century,
     // > this are in the previous century,
     // string value starting with "+" for current year + value
     shortYearCutoff: '+10',
+
     // The earliest selectable date, or null for no limit
     minDate: null,
+
     // The latest selectable date, or null for no limit
     maxDate: null,
+
     // Duration of display/closure
     duration: 'fast',
+
     // Function that takes a date and returns an array with
     // [0] = true if selectable, false if not, [1] = custom CSS class name(s) or "",
     // [2] = cell title (optional), e.g. datepicker.noWeekends
     beforeShowDay: null,
+
     // Function that takes an input field and
     // returns a set of custom settings for the date picker
     beforeShow: null,
+
     // Define a callback function when a date is selected
     onSelect: null,
+
     // Define a callback function when the month or year is changed
     onChangeMonthYear: null,
+
     // Define a callback function when the datepicker is closed
     onClose: null,
+
     // Number of months to show at a time
     numberOfMonths: 1,
+
     // The position in multipe months at which to show the current month (starting at 0)
     showCurrentAtPos: 0,
+
     // Number of months to step back/forward
     stepMonths: 1,
+
     // Number of months to step back/forward for the big links
     stepBigMonths: 12,
+
     // Selector for an alternate field to store selected dates into
     altField: '',
+
     // The date format to use for the alternate field
     altFormat: '',
+
     // The input is constrained by the current date format
     constrainInput: true,
+
     // True to show button panel, false to not show it
     showButtonPanel: false,
+
     // Customize buttons to show (CUSTOM MOD)
     buttonPanelOptions: {
       today: true,
       close: true,
     },
+
     // True to size the input for the date format, false to leave as is
     autoSize: false,
+
     // The initial disabled state
     disabled: false,
   };
@@ -2339,14 +2393,12 @@ function generateHTML(inst) {
               td.classList.add('ui-datepicker-today');
             }
           }
-          if ((!otherMonth || showOtherMonths) && daySettings[2]) {
-            td.setAttribute('title', daySettings[2].replace(/'/g, '&#39;'));
-          }
+          // if ((!otherMonth || showOtherMonths) && daySettings[2]) {
+          //   td.setAttribute('title', daySettings[2].replace(/'/g, '&#39;'));
+          // }
           if (!unselectable) {
             td.setAttribute('data-handler', 'selectDay');
             td.setAttribute('data-event', 'click');
-            td.setAttribute('data-month', printDate.getMonth());
-            td.setAttribute('data-year', printDate.getFullYear());
           }
           if (otherMonth && !showOtherMonths) {
             td.innerHTML = '&#xa0;';
@@ -2357,7 +2409,6 @@ function generateHTML(inst) {
               span.textContent = printDate.getDate();
               td.appendChild(span);
             } else {
-              // const a = document.createElement('a');
               const btn = document.createElement('button');
               btn.setAttribute('aria-current', 'false');
               btn.setAttribute('class', 'ui-datepicker-day ui-state-default');
@@ -2376,13 +2427,20 @@ function generateHTML(inst) {
               if (otherMonth) {
                 btn.classList.add('ui-priority-secondary');
               }
-              // a.setAttribute('href', '#');
               btn.textContent = printDate.getDate();
               td.appendChild(btn);
+
+              if ((!otherMonth || showOtherMonths) && daySettings[2]) {
+                // td.setAttribute('title', daySettings[2].replace(/'/g, '&#39;'));
+                const text = document.createTextNode(daySettings[2]);
+                td.appendChild(text);
+              }
             }
           }
 
           // Init a11y changes
+          td.setAttribute('data-month', printDate.getMonth());
+          td.setAttribute('data-year', printDate.getFullYear());
           const day = (dow + firstDay) % 7;
           td.setAttribute('data-day', printDate.getDate());
           td.setAttribute('data-week-day', dayNames[day]);
@@ -2918,7 +2976,7 @@ function checkExternalClick(event) {
 
 /* Update or retrieve the settings for a date picker attached to an input field or division.
  * @param  target  element - the target input field or division or span
- * @param  name	object - the new settings to update or
+ * @param  name  object - the new settings to update or
  *         string - the name of the setting to change or retrieve,
  *         when retrieving also "all" for all instance settings or
  *         "defaults" for all global defaults
