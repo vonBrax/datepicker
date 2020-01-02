@@ -262,6 +262,7 @@ function newInst(target, inline) {
     drawYear: 0,
     inline,
     dpDiv: this.dpDiv,
+    global: globalInstance(),
   };
 }
 
@@ -280,6 +281,9 @@ function connectDatepicker(target, inst) {
   target.addEventListener('keyup', this.doKeyUp);
   this.autoSize(inst);
   target.datepicker = inst;
+
+  // Disable autocomplete
+  inst.input.setAttribute('autocomplete', 'off');
 
   // If disabled option is true, disable the datepicker once it has been attached to the input (see ticket #5665)
   if (inst.settings.disabled) {
@@ -1086,9 +1090,10 @@ function doCalendarKeyDown(evt) {
             'button.ui-state-highlight,' +
             'button.ui-state-active,' +
             'button.ui-datepicker-current,' +
-            'button.ui-datepicker-close', // +
-          // '.ui-datepicker-today > .ui-state-default',
+            'button.ui-datepicker-close',
         ),
+      ).filter(
+        el => !el.disabled && !el.classList.contains('.ui-state-disabled'),
       );
 
       const direction = evt.shiftKey ? -1 : 1;
@@ -1246,13 +1251,20 @@ function doKeyPress(event) {
   const chr = String.fromCharCode(
     event.charCode == null ? event.keyCode : event.charCode,
   );
-  return (
+
+  const isValid =
     event.ctrlKey ||
     event.metaKey ||
     chr < ' ' ||
     !chars ||
-    chars.indexOf(chr) > -1
-  );
+    chars.indexOf(chr) > -1;
+
+  if (isValid) {
+    return isValid;
+  }
+
+  event.preventDefault();
+  return false;
 }
 
 /* Extract all possible characters from the date format. */
@@ -1368,9 +1380,9 @@ function autoSize(inst) {
       const dayFormat = dateFormat.match(/DD/) ? 'dayNames' : 'dayNamesShort';
       date.setDate(findMax(this.get(inst, dayFormat)));
     }
-  }
 
-  inst.input.setAttribute('size', this._formatDate(inst, date));
+    inst.input.setAttribute('size', this._formatDate(inst, date).length);
+  }
 }
 
 /* Format the given date for display. */
@@ -2048,8 +2060,9 @@ function generateHTML(inst) {
     span.textContent = prevText;
     prevEl.appendChild(span);
   }
-  if (!canAdjustMonth && !hideIfNoPrevNext) {
+  if (!canAdjustPrev && !hideIfNoPrevNext) {
     prevEl.classList.add('ui-state-disabled');
+    prevEl.setAttribute('disabled', '');
   }
 
   // Init a11y changes
@@ -2093,6 +2106,7 @@ function generateHTML(inst) {
 
   if (!canAdjustNext && !hideIfNoPrevNext) {
     nextEl.classList.add('ui-state-disabled');
+    nextEl.setAttribute('disabled', '');
   }
 
   let currentText = this.get(inst, 'currentText');
@@ -2197,7 +2211,7 @@ function generateHTML(inst) {
         `ui-datepicker-header ui-widget-header ui-helper-clearfix ${cornerClass}`,
       );
 
-      if (/all|left/.test(cornerClass) && row === 0) {
+      if (/all|left/.test(cornerClass) && row === 0 && !hideIfNoPrevNext) {
         header.appendChild(isRTL ? nextEl : prevEl);
       }
 
@@ -2213,7 +2227,7 @@ function generateHTML(inst) {
       );
       header.appendChild(monthYearHeader);
 
-      if (/all|right/.test(cornerClass) && row === 0) {
+      if (/all|right/.test(cornerClass) && row === 0 && !hideIfNoPrevNext) {
         header.appendChild(isRTL ? prevEl : nextEl);
       }
 
@@ -2244,9 +2258,9 @@ function generateHTML(inst) {
         span.setAttribute('title', dayNames[day]);
         span.textContent = dayNamesMin[day];
         th.appendChild(span);
-        theadEl.appendChild(th);
+        trEl.appendChild(th);
       }
-
+      theadEl.appendChild(trEl);
       tableEl.appendChild(theadEl);
 
       const daysInMonth = this.getDaysInMonth(drawYear, drawMonth);
@@ -2595,6 +2609,24 @@ function getFirstDayOfMonth(year, month) {
   return new Date(year, month, 1).getDay();
 }
 
+/* Set as calculateWeek to determine the week of the year based on the ISO 8601 definition.
+ * @param  date  Date - the date to get the week for
+ * @return  number - the number of the week within the year that contains this date
+ */
+function iso8601Week(date) {
+  const checkDate = new Date(date.getTime());
+
+  // Find Thursday of this week starting on Monday
+  checkDate.setDate(checkDate.getDate() + 4 - (checkDate.getDay() || 7));
+
+  const time = checkDate.getTime();
+  // Compare with Jan 1
+  checkDate.setMonth(0);
+  checkDate.setDate(1);
+
+  return Math.floor(Math.round((time - checkDate) / 86400000) / 7) + 1;
+}
+
 /* Adjust one of the date sub-fields. */
 function adjustDate(id, offset, period, preserveDatepickerHTML = false) {
   const target = typeof id === 'string' ? document.querySelector(id) : id;
@@ -2742,11 +2774,12 @@ function selectDate(id, dateStr) {
 
 /* Update any alternate field to synchronise with the main field. */
 function updateAlternate(inst) {
-  const altField = this.get(inst, 'altField');
+  const altFieldSelector = this.get(inst, 'altField');
 
-  if (!altField) {
+  if (!altFieldSelector) {
     return;
   }
+  const altField = document.querySelector(altFieldSelector);
   // Update alternate field too
   const altFormat = this.get(inst, 'altFormat') || this.get(inst, 'dateFormat');
   const date = this.getDate(inst);
@@ -2928,14 +2961,14 @@ function optionDatepicker(target, name, value) {
       settings.dateFormat !== undefined &&
       settings.minDate === undefined
     ) {
-      inst.settings.minDate = this.formatDate(inst, minDate);
+      inst.settings.minDate = this._formatDate(inst, minDate);
     }
     if (
       maxDate !== null &&
       settings.dateFormat !== undefined &&
       settings.maxDate === undefined
     ) {
-      inst.settings.maxDate = this.formatDate(inst, maxDate);
+      inst.settings.maxDate = this._formatDate(inst, maxDate);
     }
 
     if ('disabled' in settings) {
@@ -3067,6 +3100,7 @@ proto.canAdjustMonth = canAdjustMonth;
 proto.isInRange = isInRange;
 proto.generateMonthYearHeader = generateMonthYearHeader;
 proto.getFirstDayOfMonth = getFirstDayOfMonth;
+proto.iso8601Week = iso8601Week;
 proto.adjustDate = adjustDate;
 proto.getInst = getInst;
 proto.isDisabledDatepicker = isDisabledDatepicker;
@@ -3089,7 +3123,7 @@ proto.destroyDatepicker = destroyDatepicker;
 proto.delegateClicks = delegateClicks;
 /**
  * @todo:
- * add Missing functions:
+ * add Missing functions if necessary:
  * - dialogDatepicker
  * - refreshDatepicker
  * - setDateDatepicker
@@ -3162,11 +3196,11 @@ const globalInst = new DatePicker();
 globalInst.initialized = false;
 globalInst.uuid = new Date().getTime();
 globalInst.version = '@VERSION';
-window.__quno__ = window.__quno__ || {};
-window.__quno__.datepicker = globalInst;
 
+// Arbitrarially storing the singleton in window.__datepicker__
+window.__datepicker__ = globalInst;
 function globalInstance() {
-  return window.__quno__.datepicker;
+  return window.__datepicker__;
 }
 
 export { datepicker };
